@@ -598,22 +598,32 @@
   }));
 
   /* --------------------------------------------------------- presets */
+  // Choosing an item in the dropdown inserts it right away -- no separate
+  // "Insert preset" button needed.
   const presetSelect = document.getElementById('preset-select');
+  const placeholderOpt = document.createElement('option');
+  placeholderOpt.value = '';
+  placeholderOpt.textContent = 'Insérer un preset…';
+  placeholderOpt.disabled = true;
+  placeholderOpt.selected = true;
+  presetSelect.appendChild(placeholderOpt);
   Object.keys(PRESET_LABELS).forEach((key) => {
     const opt = document.createElement('option');
     opt.value = key;
     opt.textContent = PRESET_LABELS[key];
     presetSelect.appendChild(opt);
   });
-  document.getElementById('btn-insert-preset').addEventListener('click', () => {
+  presetSelect.addEventListener('change', () => {
     const name = presetSelect.value;
     if (!name) return;
     const shapes = buildPreset(name, canvas.width / 2, canvas.height / 2, state.color, state.width);
-    if (!shapes.length) return;
-    pushUndo();
-    state.shapes.push(...shapes);
-    render();
-    setStatus(`Preset inséré : ${PRESET_LABELS[name]}`);
+    if (shapes.length) {
+      pushUndo();
+      state.shapes.push(...shapes);
+      render();
+      setStatus(`Preset inséré : ${PRESET_LABELS[name]}`);
+    }
+    presetSelect.value = '';
   });
 
   render();
