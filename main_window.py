@@ -1,16 +1,4 @@
-"""
-main_window.py
-Main window: two clean toolbar rows (tools/actions on top, style & options
-below), a large drawing canvas, a live graphical preview panel, the generated
-TikZ code panel, and File actions. Dark violet/turquoise theme applied at
-startup.
 
-v4:
-- True HiDPI/Retina rendering (crisp canvas on high-density screens).
-- Pen-pressure toggle (variable stroke width from the tablet).
-- SVG export (true vector) + PNG export with selectable resolution (2x-8x).
-- Toolbar reorganized into two rows: less cramped, faster to scan.
-"""
 import sys
 import os
 import copy
@@ -161,21 +149,14 @@ PNG_SCALES = ["2x", "3x", "4x", "6x", "8x"]
 
 
 class MainWindow(QMainWindow):
-    # Keeps strong references to windows opened via "Duplicate to new
-    # window" so Python doesn't garbage-collect (and silently close) them
-    # the moment this method returns.
+    
     _open_windows: list = []
 
     def __init__(self):
         super().__init__()
         self.setWindowTitle("VanovaTikZSketch — hand-drawn geometry to LaTeX/TikZ")
         self.resize(1900, 980)
-        # Everything is consolidated into exactly 3 compact toolbar rows:
-        # (1) Tools, (2) Design -- shape actions + style/options + presets,
-        # (3) Navigation + Arrange. Buttons keep their tight padding so the
-        # whole toolbar stack stays short and most of the window is left for
-        # the actual drawing canvas. The window needs to stay reasonably
-        # wide so row 2 (the busiest one) never wraps or hides a button.
+        
         self.setMinimumSize(1650, 640)
 
         self.canvas = DrawingCanvas()
@@ -283,9 +264,7 @@ class MainWindow(QMainWindow):
         act_delete.triggered.connect(self.canvas.delete_selected)
         tb.addAction(act_delete)
 
-        # File operations moved here (row 1 has spare width, so nothing on
-        # row 2 -- the busiest row -- ever ends up hidden behind an overflow
-        # arrow; every button stays always visible).
+        
         tb.addSeparator()
 
         act_new = QAction("New", self)
@@ -322,12 +301,7 @@ class MainWindow(QMainWindow):
         tb_shape.setOrientation(Qt.Horizontal)
         self.addToolBar(Qt.TopToolBarArea, tb_shape)
 
-        # No more "Idealize" / "★ Machine finish" buttons to click -- the
-        # cleanup they used to do by hand is now simply always-on as you
-        # draw (see canvas.py: every stroke is corrected automatically,
-        # nothing to ask for). Kept as canvas.idealize_selected() /
-        # canvas.machine_finish_all() methods internally in case a future
-        # shortcut wants them, just not exposed as toolbar buttons anymore.
+       
 
         act_label = QAction("Name (L)", self)
         act_label.setToolTip(
@@ -432,10 +406,7 @@ class MainWindow(QMainWindow):
         self.vectorize_check.toggled.connect(self.canvas.set_auto_vectorize)
         tb2.addWidget(self.vectorize_check)
 
-        # "Smooth finish" is no longer a checkbox to remember to turn on --
-        # it is now simply always active (canvas.py: self.smooth_finish is
-        # permanently True), so every curve is re-fit with a clean tolerance
-        # automatically, with nothing to ask for.
+       
 
         self.grid_check = QCheckBox("Snap to grid")
         self.grid_check.toggled.connect(self.canvas.set_snap_to_grid)
@@ -1002,13 +973,8 @@ def main():
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
     QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
     app = QApplication(sys.argv)
-    # Force the "Fusion" base style instead of the native macOS one. On Mac,
-    # the native style makes QComboBox behave like a real NSPopUpButton:
-    # press-and-HOLD, drag down to the item, then release to select it. A
-    # normal quick click opens the popup and the release (still part of the
-    # same click) immediately "selects" whatever is under the cursor, so the
-    # dropdown looks like it flashes and closes instantly. Fusion gives the
-    # standard click-to-open / click-to-select combo box behavior instead.
+   
+    
     app.setStyle("Fusion")
     app.setStyleSheet(APP_STYLESHEET)
     win = MainWindow()
