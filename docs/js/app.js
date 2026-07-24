@@ -194,7 +194,7 @@
     state.shapes.push(shape);
     state.selected = state.shapes.length - 1; // auto-select so Copy/Duplicate work right away
     render();
-    setStatus(closed ? 'Forme fermée ajoutée (auto-finish).' : 'Trait ajouté.');
+    setStatus(closed ? 'Closed shape added (auto-finish).' : 'Stroke added.');
   }
 
   function setStatus(msg) { statusText.textContent = msg; }
@@ -209,7 +209,7 @@
     } else if (state.tool === 'line' || state.tool === 'arrow') {
       drag = { kind: state.tool, p0: [x, y], p1: [x, y] };
     } else if (state.tool === 'text') {
-      const txt = prompt('Texte (LaTeX autorisé, ex: $\\alpha$):', '');
+      const txt = prompt('Text (LaTeX allowed, e.g. $\\alpha$):', '');
       if (txt) {
         pushUndo();
         state.shapes.push({ type: 'text', x, y, text: txt, latex: true, color: state.color, fontsize: 16 });
@@ -300,7 +300,7 @@
       btn.classList.add('active');
       state.tool = btn.dataset.tool;
       updateHeadStyleUI();
-      setStatus(`Outil : ${btn.textContent.trim()}`);
+      setStatus(`Tool: ${btn.textContent.trim()}`);
     });
   });
 
@@ -381,20 +381,20 @@
   document.getElementById('btn-clear').addEventListener('click', clearAll);
   function clearAll() {
     if (!state.shapes.length) return;
-    if (confirm('Effacer tout le dessin ?')) { pushUndo(); state.shapes = []; state.selected = -1; render(); }
+    if (confirm('Clear the entire drawing?')) { pushUndo(); state.shapes = []; state.selected = -1; render(); }
   }
   document.getElementById('btn-new').addEventListener('click', clearAll);
   document.getElementById('btn-new-window').addEventListener('click', () => {
     window.open(window.location.pathname, '_blank');
   });
   document.getElementById('btn-help').addEventListener('click', () => {
-    alert('VanovaTikZSketch — aide rapide\n\n'
-      + 'Pen : dessine à main levée ; une forme presque fermée devient automatiquement une forme fermée (Auto-finish).\n'
-      + 'Line / Arrow : cliquer-glisser.\n'
-      + 'Text : cliquer, puis taper (LaTeX autorisé, ex: $\\alpha$).\n'
-      + 'Select : cliquer pour sélectionner/déplacer ; Suppr pour effacer.\n'
-      + 'Ctrl/Cmd+Z annule, Ctrl/Cmd+Shift+Z refait, Ctrl/Cmd+C/V/D copie/colle/duplique.\n'
-      + 'Ctrl/Cmd + molette : zoom.');
+    alert('VanovaTikZSketch — quick help\n\n'
+      + 'Pen: freehand drawing; an almost-closed shape automatically becomes a closed shape (Auto-finish).\n'
+      + 'Line / Arrow: click and drag.\n'
+      + 'Text: click, then type (LaTeX allowed, e.g. $\\alpha$).\n'
+      + 'Select: click to select/move; Delete to remove.\n'
+      + 'Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z redo, Ctrl/Cmd+C/V/D copy/paste/duplicate.\n'
+      + 'Ctrl/Cmd + scroll wheel: zoom.');
   });
 
   document.getElementById('btn-save').addEventListener('click', () => {
@@ -416,8 +416,8 @@
         state.shapes = data.shapes || [];
         state.selected = -1;
         render();
-        setStatus('Projet chargé.');
-      } catch (err) { alert('Fichier invalide.'); }
+        setStatus('Project loaded.');
+      } catch (err) { alert('Invalid file.'); }
     };
     reader.readAsText(file);
     e.target.value = '';
@@ -426,7 +426,7 @@
   document.getElementById('btn-copy').addEventListener('click', () => {
     const out = document.getElementById('tikz-output');
     out.select();
-    navigator.clipboard.writeText(out.value).then(() => setStatus('Code TikZ copié.'));
+    navigator.clipboard.writeText(out.value).then(() => setStatus('TikZ code copied.'));
   });
   document.getElementById('btn-download-tex').addEventListener('click', () => {
     const blob = new Blob([document.getElementById('tikz-output').value], { type: 'text/plain' });
@@ -474,29 +474,29 @@
 
   /* --------------------------------------- shape: copy/paste/duplicate */
   function copySelected() {
-    if (state.selected < 0) { setStatus('Aucune forme sélectionnée à copier (cliquez une forme, ou dessinez-en une).'); return; }
+    if (state.selected < 0) { setStatus('No shape selected to copy (click a shape, or draw one).'); return; }
     state.clipboard = cloneShape(state.shapes[state.selected]);
-    setStatus('Forme copiée.');
+    setStatus('Shape copied.');
   }
   function pasteClipboard() {
-    if (!state.clipboard) { setStatus('Presse-papiers vide -- copiez une forme d\'abord.'); return; }
+    if (!state.clipboard) { setStatus('Clipboard empty -- copy a shape first.'); return; }
     pushUndo();
     const s = cloneShape(state.clipboard);
     translateShape(s, 16, 16);
     state.shapes.push(s);
     state.selected = state.shapes.length - 1;
     render();
-    setStatus('Forme collée.');
+    setStatus('Shape pasted.');
   }
   function duplicateSelected() {
-    if (state.selected < 0) { setStatus('Aucune forme sélectionnée à dupliquer (cliquez une forme, ou dessinez-en une).'); return; }
+    if (state.selected < 0) { setStatus('No shape selected to duplicate (click a shape, or draw one).'); return; }
     pushUndo();
     const s = cloneShape(state.shapes[state.selected]);
     translateShape(s, 16, 16);
     state.shapes.push(s);
     state.selected = state.shapes.length - 1;
     render();
-    setStatus('Forme dupliquée.');
+    setStatus('Shape duplicated.');
   }
   document.getElementById('btn-copy-shape').addEventListener('click', copySelected);
   document.getElementById('btn-paste-shape').addEventListener('click', pasteClipboard);
@@ -552,5 +552,5 @@
 
   render();
   applyZoom();
-  setStatus('Prêt.');
+  setStatus('Ready.');
 })();

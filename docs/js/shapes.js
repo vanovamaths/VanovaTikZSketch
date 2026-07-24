@@ -202,7 +202,7 @@ function renderShape(ctx, s, selected) {
     const bb = shapeBBox(s);
     ctx.save();
     ctx.setLineDash([5, 4]);
-    ctx.strokeStyle = '#e08a2c';
+    ctx.strokeStyle = '#2563eb';
     ctx.lineWidth = 1.2;
     ctx.strokeRect(bb[0] - 5, bb[1] - 5, (bb[2] - bb[0]) + 10, (bb[3] - bb[1]) + 10);
     ctx.restore();

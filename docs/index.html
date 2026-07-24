@@ -3,14 +3,13 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="theme-color" content="#00a759" />
 <title>VanovaTikZSketch — hand-drawn geometry to LaTeX/TikZ</title>
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header id="toolbar">
     <!-- Row 1: Tools -->
-    <div class="tb-row tb-row-tools">
+    <div class="tb-row">
       <div class="tb-group" id="tools">
         <button data-tool="select" class="tool active" title="Select / Move (V)">&#9654; Select</button>
         <button data-tool="pen" class="tool" title="Pen (freehand)">&#9998; Pen</button>
@@ -36,7 +35,7 @@
     </div>
 
     <!-- Row 2: Design (style / options / presets) -->
-    <div class="tb-row tb-row-design">
+    <div class="tb-row">
       <div class="tb-group">
         <button id="btn-clear" title="Clear all">Clear all</button>
       </div>
@@ -82,7 +81,7 @@
     </div>
 
     <!-- Row 3: Navigation + Arrange -->
-    <div class="tb-row tb-row-nav">
+    <div class="tb-row">
       <div class="tb-group">
         <span class="tb-label">View</span>
         <button id="btn-zoom-out" title="Zoom out">&minus;</button>
