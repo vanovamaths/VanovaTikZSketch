@@ -25,6 +25,7 @@
     fillColor: '#cccccc',
     lineStyle: 'solid',
     headStyle: 'stealth',
+    bend: 0, // quiver-style curve amount (px) for the next line/arrow
     autoFinish: true,
     snapGrid: false,
     showGrid: false,
@@ -227,7 +228,7 @@
         drag = { kind: 'move', last: [x, y] };
       }
       render();
-      updateHeadStyleUI();
+      updateContextualUI();
       syncControlsToSelection();
     }
   });
@@ -242,7 +243,7 @@
       renderDuringDrag();
     } else if (drag.kind === 'line' || drag.kind === 'arrow') {
       drag.p1 = [x, y];
-      drag.previewShape = { type: drag.kind, p0: drag.p0, p1: drag.p1, headStyle: state.headStyle, ...newShapeBase() };
+      drag.previewShape = { type: drag.kind, p0: drag.p0, p1: drag.p1, headStyle: state.headStyle, bend: state.bend, ...newShapeBase() };
       renderDuringDrag();
     } else if (drag.kind === 'move' && state.selected >= 0) {
       const dx = x - drag.last[0], dy = y - drag.last[1];
@@ -259,7 +260,7 @@
     } else if (drag.kind === 'line' || drag.kind === 'arrow') {
       if (Math.hypot(drag.p1[0] - drag.p0[0], drag.p1[1] - drag.p0[1]) > 2) {
         pushUndo();
-        const s = { type: drag.kind, p0: drag.p0, p1: drag.p1, ...newShapeBase() };
+        const s = { type: drag.kind, p0: drag.p0, p1: drag.p1, bend: state.bend, ...newShapeBase() };
         if (drag.kind === 'arrow') s.headStyle = state.headStyle;
         state.shapes.push(s);
         state.selected = state.shapes.length - 1; // auto-select so Copy/Duplicate work right away
@@ -299,13 +300,20 @@
       document.querySelectorAll('#tools .tool').forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
       state.tool = btn.dataset.tool;
-      updateHeadStyleUI();
+      updateContextualUI();
       setStatus(`Tool: ${btn.textContent.trim()}`);
     });
   });
 
-  function updateHeadStyleUI() {
-    document.getElementById('head-style-group').style.display = state.tool === 'arrow' ? 'flex' : 'none';
+  // Shows/hides the Head-style and Curve controls based on the active tool
+  // AND on the currently selected shape, so they're available both while
+  // drawing a new line/arrow and while editing an existing one.
+  function updateContextualUI() {
+    const sel = state.selected >= 0 ? state.shapes[state.selected] : null;
+    const showHead = state.tool === 'arrow' || (sel && sel.type === 'arrow');
+    const showCurve = state.tool === 'line' || state.tool === 'arrow' || (sel && (sel.type === 'line' || sel.type === 'arrow'));
+    document.getElementById('head-style-group').style.display = showHead ? 'flex' : 'none';
+    document.getElementById('curve-group').style.display = showCurve ? 'flex' : 'none';
   }
 
   function syncControlsToSelection() {
@@ -316,6 +324,12 @@
     document.getElementById('fill-toggle').checked = !!s.filled;
     document.getElementById('line-style').value = s.lineStyle || 'solid';
     if (s.type === 'arrow') document.getElementById('head-style').value = s.headStyle || 'stealth';
+    if (s.type === 'line' || s.type === 'arrow') {
+      const bend = s.bend || 0;
+      document.getElementById('curve-slider').value = bend;
+      document.getElementById('curve-value').textContent = bend;
+      state.bend = bend;
+    }
   }
 
   const palette = document.getElementById('palette');
@@ -368,6 +382,23 @@
     if (state.selected >= 0 && state.shapes[state.selected].type === 'arrow') {
       pushUndo(); state.shapes[state.selected].headStyle = state.headStyle; render();
     }
+  });
+  document.getElementById('curve-slider').addEventListener('input', (e) => {
+    state.bend = parseFloat(e.target.value);
+    document.getElementById('curve-value').textContent = state.bend;
+    const s = state.selected >= 0 ? state.shapes[state.selected] : null;
+    if (s && (s.type === 'line' || s.type === 'arrow')) {
+      pushUndo(); s.bend = state.bend; render();
+    }
+  });
+  document.getElementById('btn-reverse-arrow').addEventListener('click', () => {
+    const s = state.selected >= 0 ? state.shapes[state.selected] : null;
+    if (!s || (s.type !== 'line' && s.type !== 'arrow')) { setStatus('Select a line or arrow to reverse.'); return; }
+    pushUndo();
+    const tmp = s.p0; s.p0 = s.p1; s.p1 = tmp;
+    s.bend = -(s.bend || 0); // swapping endpoints negates the chord direction, so
+    render();                // negate bend too to keep the same visual curve
+    setStatus('Direction reversed.');
   });
   document.getElementById('auto-finish').addEventListener('change', (e) => { state.autoFinish = e.target.checked; });
   document.getElementById('snap-grid').addEventListener('change', (e) => { state.snapGrid = e.target.checked; });
@@ -540,10 +571,14 @@
   document.getElementById('btn-flip-h').addEventListener('click', () => transformSelected((s) => {
     const [cx] = bboxCenter(s);
     mapPoints(s, ([x, y]) => [2 * cx - x, y]);
+    // mirroring reverses handedness, so a curved line/arrow's bend must be
+    // negated too or the curve would bulge back out on the same side
+    if ((s.type === 'line' || s.type === 'arrow') && s.bend) s.bend = -s.bend;
   }));
   document.getElementById('btn-flip-v').addEventListener('click', () => transformSelected((s) => {
     const [, cy] = bboxCenter(s);
     mapPoints(s, ([x, y]) => [x, 2 * cy - y]);
+    if ((s.type === 'line' || s.type === 'arrow') && s.bend) s.bend = -s.bend;
   }));
   document.getElementById('btn-rotate').addEventListener('click', () => transformSelected((s) => {
     const [cx, cy] = bboxCenter(s);

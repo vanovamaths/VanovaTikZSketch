@@ -64,6 +64,12 @@
           <option value="none">None</option>
         </select>
       </div>
+      <div class="tb-group" id="curve-group" style="display:none;" title="Quiver-style bend: curves a line/arrow away from a straight chord (used for parallel morphisms in commutative diagrams)">
+        <span class="tb-label">Curve</span>
+        <input type="range" id="curve-slider" min="-80" max="80" step="2" value="0" />
+        <span id="curve-value">0</span>
+        <button id="btn-reverse-arrow" title="Reverse direction (swap endpoints, keep the same curve)">&#8646; Reverse</button>
+      </div>
       <div class="tb-group">
         <span class="tb-label">Line</span>
         <select id="line-style">

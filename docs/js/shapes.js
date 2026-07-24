@@ -6,6 +6,31 @@
 
 const HEAD_STYLES = ['stealth', 'classical', 'harpoon', 'none'];
 
+/** Quiver-style "bend": p0/p1 stay the straight endpoints, `bend` is a px
+ * offset of a single quadratic-bezier control point, perpendicular to the
+ * p0->p1 chord (positive = one side, negative = the other). Recomputed from
+ * p0/p1 at render/export time, so it stays correct under translation and
+ * rotation automatically; flip transforms negate it explicitly (see app.js)
+ * to keep the curve's visual handedness mirrored along with the shape. */
+function bendControlPoint(p0, p1, bend) {
+  const mx = (p0[0] + p1[0]) / 2, my = (p0[1] + p1[1]) / 2;
+  const dx = p1[0] - p0[0], dy = p1[1] - p0[1];
+  const len = Math.hypot(dx, dy) || 1;
+  const px = -dy / len, py = dx / len;
+  return [mx + px * bend, my + py * bend];
+}
+
+function flattenQuadratic(p0, ctrl, p1, steps = 16) {
+  const pts = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps, mt = 1 - t;
+    const x = mt * mt * p0[0] + 2 * mt * t * ctrl[0] + t * t * p1[0];
+    const y = mt * mt * p0[1] + 2 * mt * t * ctrl[1] + t * t * p1[1];
+    pts.push([x, y]);
+  }
+  return pts;
+}
+
 function shapeBBox(s) {
   if (s.type === 'stroke') {
     let xs = [], ys = [];
@@ -13,6 +38,11 @@ function shapeBBox(s) {
     return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
   }
   if (s.type === 'line' || s.type === 'arrow') {
+    if (s.bend) {
+      const ctrl = bendControlPoint(s.p0, s.p1, s.bend);
+      const xs = [s.p0[0], s.p1[0], ctrl[0]], ys = [s.p0[1], s.p1[1], ctrl[1]];
+      return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+    }
     return [Math.min(s.p0[0], s.p1[0]), Math.min(s.p0[1], s.p1[1]),
             Math.max(s.p0[0], s.p1[0]), Math.max(s.p0[1], s.p1[1])];
   }
@@ -64,6 +94,13 @@ function distanceToShape(x, y, s) {
     return Math.hypot(px - cx, py - cy);
   };
   if (s.type === 'line' || s.type === 'arrow') {
+    if (s.bend) {
+      const ctrl = bendControlPoint(s.p0, s.p1, s.bend);
+      const pts = flattenQuadratic(s.p0, ctrl, s.p1, 16);
+      let best = Infinity;
+      for (let i = 0; i < pts.length - 1; i++) best = Math.min(best, distSeg(x, y, pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1]));
+      return best;
+    }
     return distSeg(x, y, s.p0[0], s.p0[1], s.p1[0], s.p1[1]);
   }
   if (s.type === 'stroke') {
@@ -167,14 +204,29 @@ function renderShape(ctx, s, selected) {
   } else if (s.type === 'line' || s.type === 'arrow') {
     applyLineStyle(ctx, s);
     ctx.strokeStyle = s.color; ctx.lineWidth = s.width;
-    const shrink = s.type === 'arrow' && s.headStyle !== 'none' ? s.width * 3.2 : 0;
-    const ang = Math.atan2(s.p1[1] - s.p0[1], s.p1[0] - s.p0[0]);
-    const endPt = [s.p1[0] - shrink * Math.cos(ang), s.p1[1] - shrink * Math.sin(ang)];
-    ctx.beginPath();
-    ctx.moveTo(s.p0[0], s.p0[1]);
-    ctx.lineTo(endPt[0], endPt[1]);
-    ctx.stroke();
-    if (s.type === 'arrow') drawArrowHead(ctx, s.p0, s.p1, s.color, Math.max(9, s.width * 4), s.headStyle || 'stealth');
+    if (s.bend) {
+      const ctrl = bendControlPoint(s.p0, s.p1, s.bend);
+      ctx.beginPath();
+      ctx.moveTo(s.p0[0], s.p0[1]);
+      ctx.quadraticCurveTo(ctrl[0], ctrl[1], s.p1[0], s.p1[1]);
+      ctx.stroke();
+      if (s.type === 'arrow') {
+        // tangent at the curve's end (t=1) points from ctrl to p1
+        const tdx = s.p1[0] - ctrl[0], tdy = s.p1[1] - ctrl[1];
+        const tlen = Math.hypot(tdx, tdy) || 1;
+        const synthFrom = [s.p1[0] - (tdx / tlen) * 40, s.p1[1] - (tdy / tlen) * 40];
+        drawArrowHead(ctx, synthFrom, s.p1, s.color, Math.max(9, s.width * 4), s.headStyle || 'stealth');
+      }
+    } else {
+      const shrink = s.type === 'arrow' && s.headStyle !== 'none' ? s.width * 3.2 : 0;
+      const ang = Math.atan2(s.p1[1] - s.p0[1], s.p1[0] - s.p0[0]);
+      const endPt = [s.p1[0] - shrink * Math.cos(ang), s.p1[1] - shrink * Math.sin(ang)];
+      ctx.beginPath();
+      ctx.moveTo(s.p0[0], s.p0[1]);
+      ctx.lineTo(endPt[0], endPt[1]);
+      ctx.stroke();
+      if (s.type === 'arrow') drawArrowHead(ctx, s.p0, s.p1, s.color, Math.max(9, s.width * 4), s.headStyle || 'stealth');
+    }
   } else if (s.type === 'ellipse') {
     ctx.beginPath();
     ctx.ellipse(s.cx, s.cy, Math.abs(s.rx), Math.abs(s.ry), 0, 0, Math.PI * 2);

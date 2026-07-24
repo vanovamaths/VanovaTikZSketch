@@ -70,7 +70,19 @@ function shapesToTikzBody(shapes, pxPerCm = PX_PER_CM) {
       if (s.lineStyle === 'dashed') style += ', dashed';
       if (s.lineStyle === 'dotted') style += ', dotted';
       const P0 = conv(s.p0), P1 = conv(s.p1);
-      lines.push(`\\draw[${style}] ${fmt(P0)} -- ${fmt(P1)};`);
+      let path;
+      if (s.bend) {
+        // elevate the quadratic bend to a cubic so it round-trips exactly
+        // through TikZ's ".. controls .. and .." bezier syntax
+        const ctrl = bendControlPoint(s.p0, s.p1, s.bend);
+        const c1 = [s.p0[0] + (2 / 3) * (ctrl[0] - s.p0[0]), s.p0[1] + (2 / 3) * (ctrl[1] - s.p0[1])];
+        const c2 = [s.p1[0] + (2 / 3) * (ctrl[0] - s.p1[0]), s.p1[1] + (2 / 3) * (ctrl[1] - s.p1[1])];
+        const C1 = conv(c1), C2 = conv(c2);
+        path = `${fmt(P0)} .. controls ${fmt(C1)} and ${fmt(C2)} .. ${fmt(P1)}`;
+      } else {
+        path = `${fmt(P0)} -- ${fmt(P1)}`;
+      }
+      lines.push(`\\draw[${style}] ${path};`);
     } else if (s.type === 'ellipse') {
       const c = conv([s.cx, s.cy]);
       const rx = round3(Math.abs(s.rx) / pxPerCm), ry = round3(Math.abs(s.ry) / pxPerCm);
@@ -117,11 +129,18 @@ function shapesToSVG(shapes, width, height) {
       const fill = s.filled ? (s.fillColor || s.color) : 'none';
       parts.push(`<path d="${d}" stroke="${s.color}" stroke-width="${s.width}" fill="${fill}" stroke-linecap="round" stroke-linejoin="round" ${dashFor(s)}/>`);
     } else if (s.type === 'line' || s.type === 'arrow') {
-      parts.push(`<line x1="${s.p0[0]}" y1="${s.p0[1]}" x2="${s.p1[0]}" y2="${s.p1[1]}" stroke="${s.color}" stroke-width="${s.width}" stroke-linecap="round" ${dashFor(s)}/>`);
+      let tangentAng;
+      if (s.bend) {
+        const ctrl = bendControlPoint(s.p0, s.p1, s.bend);
+        parts.push(`<path d="M ${s.p0[0]} ${s.p0[1]} Q ${ctrl[0]} ${ctrl[1]} ${s.p1[0]} ${s.p1[1]}" stroke="${s.color}" stroke-width="${s.width}" fill="none" stroke-linecap="round" ${dashFor(s)}/>`);
+        tangentAng = Math.atan2(s.p1[1] - ctrl[1], s.p1[0] - ctrl[0]);
+      } else {
+        parts.push(`<line x1="${s.p0[0]}" y1="${s.p0[1]}" x2="${s.p1[0]}" y2="${s.p1[1]}" stroke="${s.color}" stroke-width="${s.width}" stroke-linecap="round" ${dashFor(s)}/>`);
+        tangentAng = Math.atan2(s.p1[1] - s.p0[1], s.p1[0] - s.p0[0]);
+      }
       if (s.type === 'arrow' && (s.headStyle || 'stealth') !== 'none') {
-        const ang = Math.atan2(s.p1[1] - s.p0[1], s.p1[0] - s.p0[0]);
         const size = Math.max(9, s.width * 4);
-        const a1 = ang + Math.PI - 0.4, a2 = ang + Math.PI + 0.4;
+        const a1 = tangentAng + Math.PI - 0.4, a2 = tangentAng + Math.PI + 0.4;
         const tip = s.p1;
         const p1 = [tip[0] + size * Math.cos(a1), tip[1] + size * Math.sin(a1)];
         const p2 = [tip[0] + size * Math.cos(a2), tip[1] + size * Math.sin(a2)];
