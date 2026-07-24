@@ -1,17 +1,4 @@
-r"""
-tikz_export.py
-Translates the list of Shape objects (see shapes.py) into TikZ/LaTeX code.
-Convention: the canvas is in pixels, origin top-left, y pointing down.
-TikZ uses cm, origin bottom-left, y pointing up -> converted accordingly.
 
-Colors: plain hex codes like "#1e88e5" are NOT valid TikZ color names on
-their own — every non-black color used gets a `\definecolor{...}{HTML}{...}`
-declaration so the exported code compiles for real.
-
-v4: BezierStrokes with a pressure-driven variable width are exported
-segment-by-segment, each with its own `line width` (round caps make the
-joints invisible), so the calligraphic look survives in the compiled PDF.
-"""
 from __future__ import annotations
 from typing import List, Dict
 from shapes import Shape, BezierStroke, Line, Arrow, Ellipse, Polygon, TextLabel
