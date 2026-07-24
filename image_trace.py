@@ -1,23 +1,4 @@
-"""
-image_trace.py  (v4.2)
-Import a photo (local file or straight from a web URL) and EXTRACT ITS DESIGN
-as editable vector shapes: the main contours of the image are detected and
-converted into the same closed Bezier strokes the pen tool produces, dropped
-onto the canvas where they can be selected, moved, erased, recolored,
-idealized or machine-finished like any hand-drawn shape.
 
-Pipeline (deterministic, no AI model, numpy only):
-1. grayscale + downscale (max ~640 px) + Gaussian blur,
-2. Otsu threshold -> binary design/background mask (polarity auto-detected),
-3. Moore-neighbor boundary tracing -> one closed polyline per contour
-   (outer silhouettes AND holes, e.g. the hole of a torus),
-4. keep the N largest contours, clean/resample them (smoothing.py),
-5. Schneider fit (curvefit.py) -> closed BezierStroke shapes, scaled and
-   centered on the canvas.
-
-The glue that touches Qt (QImage <-> numpy, URL download) is kept in thin
-functions at the bottom so the geometric pipeline stays testable headless.
-"""
 from __future__ import annotations
 import math
 from typing import List, Optional, Tuple
@@ -49,9 +30,7 @@ def _downscale(gray: np.ndarray, max_dim: int = MAX_ANALYSIS_DIM) -> np.ndarray:
 
 
 def _downscale_rgb(rgb: np.ndarray, max_dim: int = MAX_ANALYSIS_DIM) -> np.ndarray:
-    """Same block-mean downscale as _downscale, applied to each of the 3
-    color channels -- keeps the RGB array in exact pixel alignment with the
-    grayscale array so a contour traced on one lines up with the other."""
+    
     h, w, _ = rgb.shape
     k = int(np.ceil(max(h, w) / max_dim))
     if k <= 1:
@@ -103,20 +82,7 @@ def _box_mean(gray: np.ndarray, radius: int) -> np.ndarray:
 
 
 def binarize(gray: np.ndarray) -> np.ndarray:
-    """Design/background mask; the design is assumed to be the minority side
-    (dark strokes on a light photo, or the reverse -- auto-detected).
-
-    v4.16: uses a LOCAL (adaptive) threshold instead of one single global
-    Otsu cutoff. A real phone photo almost never has perfectly even
-    lighting -- a shadow across one corner of the page, a slight vignette,
-    glare -- and a single global threshold either swallows the dim side of
-    the page as "ink" or loses faint strokes on the bright side, which is
-    exactly the "the whole outline looks nothing like my drawing" failure.
-    Comparing every pixel to the LOCAL average around it (a box roughly a
-    few strokes wide) tracks slow lighting gradients automatically while
-    still picking out a stroke that's genuinely darker than its immediate
-    surroundings -- the standard adaptive-threshold technique used by real
-    scanning apps."""
+    
     g = _gaussian_blur(gray, sigma=1.0)
     h, w = g.shape
     radius = max(9, int(round(min(h, w) / 30)))
@@ -133,12 +99,7 @@ _NB = [(0, -1), (-1, -1), (-1, 0), (-1, 1), (0, 1), (1, 1), (1, 0), (1, -1)]
 
 
 def _trace_one(mask: np.ndarray, sy: int, sx: int) -> List[Tuple[int, int]]:
-    """Moore-neighbor boundary tracing from a start pixel whose West neighbor
-    is background. Returns the boundary as a list of (x, y) pixels.
-    Termination: stop as soon as a (pixel, backtrack) STATE repeats -- the
-    walk is a deterministic function of that state, so a repeat means the
-    loop is closed. This is Jacob's criterion generalized, and it guarantees
-    termination on every possible mask (finite state space)."""
+   
     H, W = mask.shape
     contour = [(sx, sy)]
     p = (sy, sx)
@@ -223,11 +184,7 @@ def _perimeter(c) -> float:
 
 
 def _compactness(c) -> float:
-    """Isoperimetric ratio 4*pi*Area/Perimeter^2, ~1.0 for a smooth round
-    blob, close to 0 for a spiky/fractal boundary. A cluster of crossing
-    thin strokes has a boundary that hugs every stroke -- huge perimeter for
-    almost no enclosed area -- so this stays low regardless of how big the
-    cluster's own bounding box happens to be, unlike a pure size threshold."""
+    
     area = _shoelace_area(c)
     per = _perimeter(c)
     if per <= 1e-6:
@@ -241,10 +198,7 @@ def _rgb_to_hex(rgb: np.ndarray) -> str:
 
 
 def _mean_color_at(rgb: np.ndarray, contour, fallback: str) -> str:
-    """Average source-photo color sampled at the contour's own pixels -- the
-    boundary of a region is a good, cheap proxy for that region's color, and
-    this is what lets the extracted shapes actually look like the photo
-    instead of a plain black-outline trace."""
+    
     if rgb is None or not contour:
         return fallback
     H, W, _ = rgb.shape
@@ -255,21 +209,7 @@ def _mean_color_at(rgb: np.ndarray, contour, fallback: str) -> str:
 
 
 def _interior_color_sample(rgb: np.ndarray, contour):
-    """Robust estimate of what's INSIDE the shape -- unlike _mean_color_at
-    (which averages the boundary/ink color), this looks at the fill. For a
-    shape that is just an outline (e.g. the silhouette of a diagram, or a
-    big region drawn as a closed curve but not meant to be solid), the
-    interior sits on the plain background and comes back near-white. For a
-    genuinely solid/shaded region (a filled gray lens, a colored patch), the
-    interior comes back as that fill's real color.
-
-    A single centroid pixel is fragile (an unrelated shape can coincidentally
-    sit exactly at another shape's centroid, or -- for a hatched/textured
-    fill -- the centroid could land in a gap between strokes), so many
-    points are sampled at several radii between the centroid and the
-    boundary, and the MEAN color is taken: robust to a handful of unlucky
-    samples, and correctly averages a partially-covered (hatched) region
-    into a mid-tone rather than flipping between pure fill and pure gap."""
+    
     if rgb is None or not contour:
         return None
     H, W, _ = rgb.shape
@@ -318,33 +258,13 @@ def _erode(mask: np.ndarray, radius: int) -> np.ndarray:
 
 
 def _close_gaps(mask: np.ndarray, radius: int = 3) -> np.ndarray:
-    """Morphological closing (dilate then erode), pure numpy -- bridges the
-    small gaps BETWEEN individual hand-drawn hatch/cross-hatch strokes so a
-    shaded region traces as ONE clean blob instead of dozens of separate
-    hatch-stroke-sized fragments."""
+    
     return _erode(_dilate(mask, radius), radius)
 
 
 def _declutter_small_clusters(contours: List[List[Tuple[int, int]]],
                               overall_diag: float) -> set:
-    """Identifies contours that are a small tangle of crossing strokes
-    (hatch marks, a dashed curve's individual dashes...) rather than one of
-    the drawing's real closed silhouettes.
-
-    An earlier version of this tried to rebuild those clusters from their
-    medial-axis skeleton into clean open lines -- geometrically the "right"
-    answer, but real hand-drawn crossings turn out to be pixel-messy enough
-    (rough edges, uneven stroke width) that a skeleton graph fractures into
-    dozens of tiny disconnected stubs instead of a few clean lines, which
-    looked WORSE than the original spiky blob it was meant to replace.
-
-    So instead: these small/spiky clusters are simply DROPPED. Per the
-    "extract a blank outline, I'll add the details myself" design (v4.16),
-    that's the right tradeoff anyway -- the big, reliable body outlines
-    come through cleanly, and small decorative marks (hatching, dashes,
-    labels) are exactly the kind of thing meant to be redrawn by hand
-    afterward with the pen tool, which takes a few seconds per mark and
-    never looks like a garbled artifact."""
+    
     if len(contours) <= 1 or overall_diag <= 0:
         return set()
     CLUSTER_RATIO = 0.22
@@ -356,12 +276,7 @@ def _declutter_small_clusters(contours: List[List[Tuple[int, int]]],
         cx0, cx1, cy0, cy1 = min(xs), max(xs), min(ys), max(ys)
         diag = math.hypot(cx1 - cx0, cy1 - cy0)
         small = diag < CLUSTER_RATIO * overall_diag
-        # A crossing-stroke tangle has a boundary that hugs every individual
-        # stroke -- huge perimeter for almost no enclosed area -- so it
-        # stays spiky (low compactness) even when its bbox is NOT small
-        # relative to the drawing (e.g. hatching spread across a big shaded
-        # region). Catching that case here is what a size-only threshold
-        # misses.
+        
         spiky = _compactness(c) < COMPACT_FLOOR
         if small or spiky:
             skip_ids.add(id(c))
@@ -369,13 +284,7 @@ def _declutter_small_clusters(contours: List[List[Tuple[int, int]]],
 
 
 def _is_line_art(gray: np.ndarray) -> bool:
-    """True for a diagram/line drawing (mostly flat background + thin dark
-    strokes, e.g. any math figure), False for a real photo (broad continuous
-    tone distribution). Line art has almost no midtone pixels -- everything
-    is either background or the (thin, so few pixels) ink; a photo's
-    histogram is spread out. This decides which extraction strategy to use:
-    multilevel posterization works well on photos but badly fragments the
-    thin strokes of a diagram into scattered, self-crossing artifacts."""
+    
     midtone = (gray > 0.15) & (gray < 0.85)
     return float(midtone.mean()) < 0.12
 
@@ -385,30 +294,7 @@ def trace_gray(gray: np.ndarray, target_box: Tuple[float, float, float, float],
                max_shapes: int = 40, smooth: bool = True,
                rgb: Optional[np.ndarray] = None, levels: int = DEFAULT_LEVELS,
                use_source_colors: bool = True) -> List[BezierStroke]:
-    """
-    Full headless pipeline: grayscale array in [0,1] (+ optional matching RGB
-    array in [0,1], same H,W) -> list of closed, editable BezierStroke shapes
-    scaled/centered into target_box (x, y, w, h in canvas coordinates), a
-    faithful reproduction of the original design.
-
-    Two strategies, auto-selected by `_is_line_art`:
-    - Diagram / line art (a math figure, most drawings, mostly flat
-      background + thin dark strokes -- the common case in this app): ONE
-      Otsu binary mask, exactly like the outline the source drawing actually
-      has. Multilevel posterization badly fragments thin strokes into
-      scattered self-crossing artifacts on this kind of image, so it is
-      deliberately NOT used here.
-    - Photo (broad continuous tone distribution): the image is split into
-      `levels` luminance bands (posterization) so several distinct
-      tone/color regions are captured instead of one silhouette.
-
-    Either way, every shape's color is sampled from the real source image
-    (never a flat placeholder), and a shape is only solid-filled if its own
-    CENTROID sits on genuinely shaded/colored pixels -- a shape whose
-    centroid is on the plain background is treated as an outline instead
-    (this is what keeps a diagram's outer silhouette a plain outline rather
-    than turning it into one big opaque blob).
-    """
+   
     g = _downscale(np.asarray(gray, dtype=float))
     rgb_small = _downscale_rgb(np.asarray(rgb, dtype=float)) if rgb is not None else None
     line_art = _is_line_art(g)
@@ -425,24 +311,12 @@ def trace_gray(gray: np.ndarray, target_box: Tuple[float, float, float, float],
             band_contours = extract_contours(band)
             band_contours.sort(key=_contour_area, reverse=True)
             all_contours.extend(band_contours[:per_level_cap])
-        # Truncate FIRST (keeps a diverse mix across all tone bands, so
-        # small foreground details from a minority band aren't crowded out
-        # by one big band), THEN sort largest-first for the draw order: big
-        # background regions get painted first (bottom), smaller foreground
-        # details after (on top) -- otherwise a big fill could cover them.
+        
         contours = all_contours[:max_shapes]
         contours.sort(key=_contour_area, reverse=True)
         heavy_ids = set()
     elif rgb_small is not None and use_source_colors:
-        # Line-art path with real colors available: TWO fixed (not
-        # quantile-based) bands -- ink (near-black strokes/outlines) and
-        # fill (mid-gray/colored shaded regions) -- so a shaded region like
-        # a filled lens/circle in a math diagram is captured as its own
-        # shape instead of being missed by a single global Otsu threshold.
-        # Fixed thresholds (not adaptive/quantile) are deliberate: quantile
-        # bands are sized by PIXEL COUNT, which on a mostly-background image
-        # cuts arbitrarily through the antialiasing gradient of thin lines
-        # and fragments them into scattered, self-crossing artifacts.
+        
         polarity_dark = g.mean() > 0.5  # usual case: dark design on light background
         ink_mask = (g < 0.35) if polarity_dark else (g > 0.65)
         fill_mask = ((g >= 0.35) & (g < 0.85)) if polarity_dark else ((g <= 0.65) & (g > 0.15))
@@ -458,11 +332,7 @@ def trace_gray(gray: np.ndarray, target_box: Tuple[float, float, float, float],
         half = max(1, max_shapes // 2)
         contours = ink_contours[:half] + fill_contours[:half]
         contours = contours[:max_shapes]
-        # A shaded/hatched region's traced boundary hugs every individual
-        # hatch stroke, coming out spiky and jagged (not a hand-drawn wobble
-        # -- a genuine dense fractal-ish contour), so these contours need
-        # MUCH heavier smoothing/fairing than a clean ink outline to read as
-        # the intended shape instead of a jagged gray splat.
+        
         heavy_ids = {id(c) for c in fill_contours[:half]}
         contours.sort(key=_contour_area, reverse=True)
     else:
@@ -487,12 +357,7 @@ def trace_gray(gray: np.ndarray, target_box: Tuple[float, float, float, float],
     ox = tx + (tw - bw * s) / 2 - x0 * s
     oy = ty + (th - bh * s) / 2 - y0 * s
 
-    # "vide"/outline-only import (use_source_colors=False, the app default
-    # since v4.16): a small cluster of crossing strokes -- hatch marks, one
-    # dash of a dashed curve -- boundary-traces as a single jagged
-    # "starburst" blob (the union of several thin strokes really does have a
-    # spiky outline). Those clusters are dropped rather than kept as a
-    # garbled shape -- see _declutter_small_clusters.
+   
     cluster_skip_ids: set = set()
     if not use_source_colors:
         overall_diag = math.hypot(bw, bh)
@@ -512,16 +377,11 @@ def trace_gray(gray: np.ndarray, target_box: Tuple[float, float, float, float],
         n_samples = int(min(260, max(60, len(pts) // 2)))
         if smooth:
             if id(c) in heavy_ids:
-                # shaded/hatched region: the raw traced boundary hugs every
-                # hatch stroke and comes out spiky -- heavy smoothing +
-                # curvature fairing (no shrink) so it reads as the intended
-                # blob shape instead of a jagged gray splat.
+               
                 pts = clean_stroke(pts, closed=True, n_samples=min(n_samples, 90), passes=14)
                 pts = taubin_fair(pts, closed=True, passes=20)
             else:
-                # ink/outline: lighter smoothing -- the goal here is only to
-                # remove pixel-grid staircasing, not to round off real detail
-                # the way a freehand-jitter cleanup would.
+                
                 pts = clean_stroke(pts, closed=True, n_samples=n_samples, passes=3)
         err = adaptive_max_error(pts, ratio=0.003, lo=0.5, hi=5.0)
         segments = _fit_curve_safe(pts, err)
@@ -546,11 +406,7 @@ def _segments_sane(segments, pts) -> bool:
     ys = [p[1] for p in pts]
     x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
     w, h = max(x1 - x0, 1.0), max(y1 - y0, 1.0)
-    # A real Bezier fit can legitimately bulge a little past the point
-    # cloud's own bbox (control points aren't ON the curve), but never by
-    # much -- 20% of the shape's own size is already generous. The old 2x
-    # margin here was so loose it let genuinely broken control points
-    # (hundreds of px outside the drawing) through as "sane".
+    
     mx, my = 0.2 * w, 0.2 * h
     lo_x, hi_x, lo_y, hi_y = x0 - mx, x1 + mx, y0 - my, y1 + my
     for seg in segments:
@@ -582,16 +438,7 @@ def _polyline_as_bezier(pts):
 
 
 def _fit_curve_safe(pts, err: float):
-    """fit_curve() with a fallback ladder of looser tolerances if the result
-    fails the sanity check -- looser tolerances mean fewer/simpler Bezier
-    segments, which is much more numerically stable than a tight fit on a
-    dense point cloud. Guarantees a sane (if slightly less precise) result
-    instead of an occasional wildly-out-of-bounds shape. If even the
-    loosest tolerance still fails (can happen on a CLOSED loop where the
-    very first/last sample points coincide, an edge case Schneider's
-    algorithm was never designed for), falls back to a guaranteed-correct
-    straight-polyline-as-bezier chain rather than ever returning something
-    wildly out of bounds."""
+   
     for candidate_err in (err, max(err * 4, 6.0), 20.0, 60.0):
         segments = fit_curve(pts, max_error=candidate_err)
         if segments and _segments_sane(segments, pts):
@@ -605,18 +452,7 @@ def _bbox_diag(shape: BezierStroke) -> float:
 
 
 def _drop_noise_fragments(shapes: List[BezierStroke]) -> List[BezierStroke]:
-    """Final safety net: after extraction/smoothing/closing, a handful of
-    tiny leftover fragments can still slip through (a sliver where a hatch
-    closing didn't fully bridge a gap, antialiasing dust, etc.) and show up
-    as a stray little scribble that doesn't belong in the design at all.
-    Anything whose bounding-box diagonal is below 4% of the largest shape's
-    diagonal is dropped -- comfortably smaller than any real, deliberate
-    mark (a label tick, a small hatch stroke) in a normal diagram.
-    OPEN strokes (closed=False) are exempt from this floor: those are only
-    ever produced by the skeleton/decluttering path for a deliberately
-    small mark (one hatch line, one dash of a dashed curve) that is
-    SUPPOSED to be short -- applying the same floor to them would delete
-    most of the hatching it was built to preserve."""
+    
     if len(shapes) <= 1:
         return shapes
     diags = [_bbox_diag(s) for s in shapes]
