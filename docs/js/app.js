@@ -71,7 +71,15 @@
     cx.restore();
   }
 
-  function render() {
+  // renderCanvas() repaints only the main drawing canvas -- cheap, safe to
+  // call on every pointermove. render() additionally recomputes the Live
+  // Preview panel and the full TikZ export text, both O(all shapes); doing
+  // that on every mouse-move event while dragging/drawing (a full stroke
+  // can fire 60+ move events) is wasted, visibly laggy work with many
+  // shapes on the canvas. During an active drag we now repaint the canvas
+  // only and defer the side-panel refresh to a single rAF-throttled call,
+  // then do one full render() on pointerup so everything stays in sync.
+  function renderCanvas() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -83,12 +91,34 @@
       for (const p of polyPoints) {
         ctx.beginPath();
         ctx.arc(p[0], p[1], 3, 0, Math.PI * 2);
-        ctx.fillStyle = '#2563eb';
+        ctx.fillStyle = '#e08a2c';
         ctx.fill();
       }
     }
+  }
+
+  let sidePanelRaf = null;
+  function scheduleSidePanelUpdate() {
+    if (sidePanelRaf) return;
+    sidePanelRaf = requestAnimationFrame(() => {
+      sidePanelRaf = null;
+      renderPreview();
+      updateTikz();
+    });
+  }
+
+  function render() {
+    renderCanvas();
     renderPreview();
     updateTikz();
+  }
+
+  // Fast path used while actively dragging: repaint the canvas immediately
+  // (so the stroke/move feels instant) and coalesce the heavier side-panel
+  // refresh into at most one rAF tick, instead of once per pointer event.
+  function renderDuringDrag() {
+    renderCanvas();
+    scheduleSidePanelUpdate();
   }
 
   function renderPreview() {
@@ -224,22 +254,22 @@
       const last = drag.points[drag.points.length - 1];
       if (Math.hypot(x - last[0], y - last[1]) > 1.2) drag.points.push([x, y]);
       drag.previewShape = { type: 'polygon', points: drag.points, closed: false, ...newShapeBase() };
-      render();
+      renderDuringDrag();
     } else if (drag.kind === 'line' || drag.kind === 'arrow') {
       drag.p1 = [x, y];
       drag.previewShape = { type: drag.kind, p0: drag.p0, p1: drag.p1, headStyle: state.headStyle, ...newShapeBase() };
-      render();
+      renderDuringDrag();
     } else if (drag.kind === 'ellipse') {
       drag.p1 = [x, y];
       const cx = (drag.p0[0] + drag.p1[0]) / 2, cy = (drag.p0[1] + drag.p1[1]) / 2;
       const rx = Math.abs(drag.p1[0] - drag.p0[0]) / 2, ry = Math.abs(drag.p1[1] - drag.p0[1]) / 2;
       drag.previewShape = { type: 'ellipse', cx, cy, rx, ry, filled: state.fill, fillColor: state.fillColor, ...newShapeBase() };
-      render();
+      renderDuringDrag();
     } else if (drag.kind === 'move' && state.selected >= 0) {
       const dx = x - drag.last[0], dy = y - drag.last[1];
       translateShape(state.shapes[state.selected], dx, dy);
       drag.last = [x, y];
-      render();
+      renderDuringDrag();
     }
   });
 

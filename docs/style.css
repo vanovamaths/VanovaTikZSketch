@@ -51,8 +51,16 @@ body { display: flex; flex-direction: column; height: 100vh; }
   flex-wrap: wrap;
   align-items: center;
   gap: 14px;
-  padding: 3px 0;
+  padding: 3px 0 3px 10px;
+  border-left: 3px solid transparent;
+  margin: 2px 0;
 }
+
+/* the three toolbar rows each carry one note of the autumn palette, so the
+   full theme reads across the whole nav bar, not just the accent buttons */
+.tb-row-tools  { border-left-color: var(--accent); }
+.tb-row-design { border-left-color: var(--accent2); }
+.tb-row-nav    { border-left-color: var(--rust); }
 
 .tb-group {
   display: flex;
@@ -69,6 +77,10 @@ body { display: flex; flex-direction: column; height: 100vh; }
 
 .tb-label { color: var(--muted); margin-right: 2px; }
 .tb-group label { display: flex; align-items: center; gap: 4px; color: var(--muted); }
+
+.tb-row-tools .tb-label { color: var(--accent); }
+.tb-row-design .tb-label { color: var(--accent2); }
+.tb-row-nav .tb-label { color: #d4694a; }
 
 button, select, input[type="range"] {
   font-family: inherit;

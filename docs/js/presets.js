@@ -123,7 +123,12 @@ const PRESET_LABELS = {
   vector_field: 'Vector field along a curve',
   fiber_bundle: 'Fiber bundle (E, pi, B, fiber F)',
   lie_groupoid: 'Lie groupoid (G rightrightarrows M)',
-  commutative_square: 'Commutative diagram (square)',
+  commutative_square: 'Quiver: commutative square',
+  triangle_diagram: 'Quiver: commutative triangle',
+  pullback_square: 'Quiver: pullback square',
+  pushout_square: 'Quiver: pushout square',
+  span_diagram: 'Quiver: span (A <- X -> B)',
+  cospan_diagram: 'Quiver: cospan (A -> X <- B)',
   foliation: 'Foliation / symplectic leaves',
 };
 
@@ -434,6 +439,79 @@ function buildPreset(name, cx, cy, color, width, scale = 1.0) {
       textShape(D[0] + 10 * s, (B[1] + D[1]) / 2, 'h', color, { fontsize: fs }),
       textShape((C[0] + D[0]) / 2 - 6 * s, D[1] + 14 * s, 'k', color, { fontsize: fs }),
     ];
+  }
+
+  if (name === 'triangle_diagram') {
+    // A -> B -> C with the diagonal composite A -> C (quiver.app-style
+    // commutative triangle: h = g \circ f).
+    const A = [cx - 90 * s, cy - 70 * s], B = [cx + 90 * s, cy - 70 * s], C = [cx, cy + 80 * s];
+    const fs = Math.max(10, Math.round(15 * s));
+    return [
+      textShape(A[0] - 16 * s, A[1] - 10 * s, 'A', color, { fontsize: fs }),
+      textShape(B[0] + 8 * s, B[1] - 10 * s, 'B', color, { fontsize: fs }),
+      textShape(C[0] - 6 * s, C[1] + 18 * s, 'C', color, { fontsize: fs }),
+      arrowShape([A[0] + 16 * s, A[1]], [B[0] - 16 * s, B[1]], color, width),
+      arrowShape([B[0] - 8 * s, B[1] + 14 * s], [C[0] + 8 * s, C[1] - 14 * s], color, width),
+      arrowShape([A[0] + 8 * s, A[1] + 14 * s], [C[0] - 8 * s, C[1] - 14 * s], color, width),
+      textShape((A[0] + B[0]) / 2 - 6 * s, A[1] - 16 * s, 'f', color, { fontsize: fs }),
+      textShape((B[0] + C[0]) / 2 + 12 * s, (B[1] + C[1]) / 2, 'g', color, { fontsize: fs }),
+      textShape((A[0] + C[0]) / 2 - 22 * s, (A[1] + C[1]) / 2, 'g \\circ f', color, { fontsize: fs, latex: true }),
+    ];
+  }
+
+  if (name === 'pullback_square' || name === 'pushout_square') {
+    // Same commutative square as commutative_square, plus the small
+    // right-angle "corner" tick mark (standard quiver.app / category-theory
+    // notation) at the universal-property vertex: the apex P for a
+    // pullback (arrows point OUT of P), the apex Q for a pushout (arrows
+    // point INTO Q).
+    const isPullback = name === 'pullback_square';
+    const P = [cx - 75 * s, cy - 75 * s], B = [cx + 75 * s, cy - 75 * s], C = [cx - 75 * s, cy + 75 * s], Q = [cx + 75 * s, cy + 75 * s];
+    const fs = Math.max(10, Math.round(15 * s));
+    const shapes = [
+      textShape(P[0] - 16 * s, P[1] - 10 * s, isPullback ? 'P' : 'A', color, { fontsize: fs }),
+      textShape(B[0] + 8 * s, B[1] - 10 * s, 'B', color, { fontsize: fs }),
+      textShape(C[0] - 16 * s, C[1] + 8 * s, 'C', color, { fontsize: fs }),
+      textShape(Q[0] + 8 * s, Q[1] + 8 * s, isPullback ? 'D' : 'Q', color, { fontsize: fs }),
+      arrowShape([P[0] + 14 * s, P[1]], [B[0] - 14 * s, B[1]], color, width),
+      arrowShape([P[0], P[1] + 14 * s], [C[0], C[1] - 14 * s], color, width),
+      arrowShape([B[0], B[1] + 14 * s], [Q[0], Q[1] - 14 * s], color, width),
+      arrowShape([C[0] + 14 * s, C[1]], [Q[0] - 14 * s, Q[1]], color, width),
+    ];
+    const cornerSize = 13 * s;
+    if (isPullback) {
+      // tick opens toward the inside of the square, at P (top-left)
+      shapes.push(polygonShape([[P[0] + cornerSize, P[1]], [P[0] + cornerSize, P[1] + cornerSize], [P[0], P[1] + cornerSize]], color, width * 0.8, false));
+    } else {
+      // tick opens toward the inside of the square, at Q (bottom-right)
+      shapes.push(polygonShape([[Q[0] - cornerSize, Q[1]], [Q[0] - cornerSize, Q[1] - cornerSize], [Q[0], Q[1] - cornerSize]], color, width * 0.8, false));
+    }
+    return shapes;
+  }
+
+  if (name === 'span_diagram' || name === 'cospan_diagram') {
+    // Span:   A <--p-- X --q--> B   (apex X on top, arrows pointing out)
+    // Cospan: A --p--> X <--q-- B   (apex X on bottom, arrows pointing in)
+    const isSpan = name === 'span_diagram';
+    const X = [cx, isSpan ? cy - 70 * s : cy + 70 * s];
+    const A = [cx - 100 * s, isSpan ? cy + 60 * s : cy - 60 * s];
+    const B = [cx + 100 * s, isSpan ? cy + 60 * s : cy - 60 * s];
+    const fs = Math.max(10, Math.round(15 * s));
+    const shapes = [
+      textShape(X[0] - 6 * s, X[1] + (isSpan ? -18 : 18) * s, 'X', color, { fontsize: fs }),
+      textShape(A[0] - 16 * s, A[1] + (isSpan ? 18 : -12) * s, 'A', color, { fontsize: fs }),
+      textShape(B[0] + 8 * s, B[1] + (isSpan ? 18 : -12) * s, 'B', color, { fontsize: fs }),
+    ];
+    if (isSpan) {
+      shapes.push(arrowShape(X, A, color, width), arrowShape(X, B, color, width));
+    } else {
+      shapes.push(arrowShape(A, X, color, width), arrowShape(B, X, color, width));
+    }
+    shapes.push(
+      textShape((X[0] + A[0]) / 2 - 18 * s, (X[1] + A[1]) / 2, 'p', color, { fontsize: fs }),
+      textShape((X[0] + B[0]) / 2 + 10 * s, (X[1] + B[1]) / 2, 'q', color, { fontsize: fs }),
+    );
+    return shapes;
   }
 
   if (name === 'foliation') {
