@@ -1,11 +1,20 @@
+/*
+ * Theme: Universite de Sherbrooke (vert fierte officiel #00A759) x automne.
+ * Fond brun tres sombre (cafe/ecorce) plutot que le bleu marine d'origine,
+ * accent principal = vert UdeS, accent secondaire = ambre citrouille,
+ * une pointe de rouille reservee aux actions destructives (supprimer/gomme).
+ */
 :root {
-  --bg: #0f1526;
-  --bg2: #161d33;
-  --accent: #2dd4bf;
-  --accent2: #2563eb;
-  --text: #e6ebf5;
-  --muted: #93a0bb;
-  --border: #2a3350;
+  --bg: #1a130d;
+  --bg2: #241a11;
+  --bg3: #2c2015;
+  --accent: #00a759;      /* vert fierte UdeS (officiel, hex web #00A759) */
+  --accent-dark: #00753e;
+  --accent2: #e08a2c;     /* ambre automne, action secondaire / focus */
+  --rust: #b3452c;        /* rouille, reserve aux actions destructives */
+  --text: #f3ead9;
+  --muted: #b7a58c;
+  --border: #3d2c1c;
 }
 
 * { box-sizing: border-box; }
@@ -22,9 +31,19 @@ html, body {
 body { display: flex; flex-direction: column; height: 100vh; }
 
 #toolbar {
-  background: var(--bg2);
+  background: linear-gradient(180deg, var(--bg2), var(--bg3));
   border-bottom: 1px solid var(--border);
   padding: 6px 10px;
+  position: relative;
+}
+
+/* fine bande d'automne : vert -> ambre -> rouille */
+#toolbar::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: -1px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2), var(--rust));
 }
 
 .tb-row {
@@ -57,19 +76,22 @@ button, select, input[type="range"] {
 }
 
 button {
-  background: #1e274a;
+  background: #2a1f14;
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 5px 10px;
   cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
 }
 
-button:hover { background: #283058; }
-button.active { background: var(--accent); color: #04211d; border-color: var(--accent); }
+button:hover { background: #3a2b1c; border-color: #4a3624; }
+button.active { background: var(--accent); color: #06251a; border-color: var(--accent-dark); font-weight: 600; }
+
+#btn-delete:hover { background: var(--rust); border-color: var(--rust); color: #fff; }
 
 select {
-  background: #1e274a;
+  background: #2a1f14;
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -81,12 +103,15 @@ select {
   width: 20px; height: 20px; border-radius: 4px; cursor: pointer;
   border: 2px solid transparent;
 }
-#palette .swatch.active { border-color: var(--accent); }
+#palette .swatch.active { border-color: var(--accent2); }
 
 input[type="color"] {
   width: 26px; height: 26px; padding: 0; border: 1px solid var(--border);
   border-radius: 5px; background: none; cursor: pointer;
 }
+
+input[type="range"] { accent-color: var(--accent); }
+input[type="checkbox"] { accent-color: var(--accent); }
 
 #workspace {
   flex: 1;
@@ -97,7 +122,10 @@ input[type="color"] {
 #canvas-wrap {
   flex: 1;
   overflow: auto;
-  background: #0b0f1c;
+  background:
+    radial-gradient(ellipse at top left, rgba(224, 138, 44, 0.06), transparent 55%),
+    radial-gradient(ellipse at bottom right, rgba(0, 167, 89, 0.06), transparent 55%),
+    #140f0a;
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
@@ -105,9 +133,9 @@ input[type="color"] {
 }
 
 #canvas {
-  background: #ffffff;
+  background: #fffdf7;
   border-radius: 4px;
-  box-shadow: 0 0 0 1px var(--border), 0 12px 30px rgba(0,0,0,0.35);
+  box-shadow: 0 0 0 1px var(--border), 0 12px 30px rgba(0,0,0,0.45);
   cursor: crosshair;
   touch-action: none;
 }
@@ -122,10 +150,10 @@ input[type="color"] {
   gap: 8px;
 }
 
-.panel-title { color: var(--muted); font-weight: 600; }
+.panel-title { color: var(--accent2); font-weight: 600; }
 
 #preview-wrap {
-  background: #ffffff;
+  background: #fffdf7;
   border: 1px solid var(--border);
   border-radius: 6px;
   height: 220px;
@@ -140,8 +168,8 @@ input[type="color"] {
   flex: 1;
   min-height: 160px;
   resize: none;
-  background: #0b0f1c;
-  color: #b7f5d8;
+  background: #120d08;
+  color: #9fe8bd;
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 10px;
@@ -152,6 +180,8 @@ input[type="color"] {
 
 .panel-buttons { display: flex; gap: 8px; }
 .panel-buttons button { flex: 1; }
+.panel-buttons button:first-child { background: var(--accent); color: #06251a; border-color: var(--accent-dark); }
+.panel-buttons button:first-child:hover { background: var(--accent-dark); color: #fff; }
 
 #statusbar {
   background: var(--bg2);
