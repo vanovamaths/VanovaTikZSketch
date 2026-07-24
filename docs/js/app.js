@@ -86,15 +86,6 @@
     drawGrid(canvas, ctx);
     state.shapes.forEach((s, i) => renderShape(ctx, s, i === state.selected));
     if (drag && drag.previewShape) renderShape(ctx, drag.previewShape, false);
-    if (polyPoints && polyPoints.length) {
-      renderShape(ctx, { type: 'polygon', points: polyPoints, closed: false, color: state.color, width: state.width, lineStyle: 'dashed' }, false);
-      for (const p of polyPoints) {
-        ctx.beginPath();
-        ctx.arc(p[0], p[1], 3, 0, Math.PI * 2);
-        ctx.fillStyle = '#e08a2c';
-        ctx.fill();
-      }
-    }
   }
 
   let sidePanelRaf = null;
@@ -155,7 +146,6 @@
 
   /* ------------------------------------------------------------- tools */
   let drag = null; // active pointer interaction state
-  let polyPoints = null; // in-progress polygon
 
   function snap(v) { return state.snapGrid ? Math.round(v / GRID_STEP) * GRID_STEP : v; }
 
@@ -202,6 +192,7 @@
     };
     pushUndo();
     state.shapes.push(shape);
+    state.selected = state.shapes.length - 1; // auto-select so Copy/Duplicate work right away
     render();
     setStatus(closed ? 'Forme fermée ajoutée (auto-finish).' : 'Trait ajouté.');
   }
@@ -217,18 +208,12 @@
       drag = { kind: 'pen', points: [[x, y]] };
     } else if (state.tool === 'line' || state.tool === 'arrow') {
       drag = { kind: state.tool, p0: [x, y], p1: [x, y] };
-    } else if (state.tool === 'ellipse') {
-      drag = { kind: 'ellipse', p0: [x, y], p1: [x, y] };
-    } else if (state.tool === 'polygon') {
-      if (!polyPoints) polyPoints = [];
-      polyPoints.push([x, y]);
-      drag = { kind: 'polygon' };
-      render();
     } else if (state.tool === 'text') {
       const txt = prompt('Texte (LaTeX autorisé, ex: $\\alpha$):', '');
       if (txt) {
         pushUndo();
         state.shapes.push({ type: 'text', x, y, text: txt, latex: true, color: state.color, fontsize: 16 });
+        state.selected = state.shapes.length - 1; // auto-select so Copy/Duplicate work right away
         render();
       }
     } else if (state.tool === 'eraser') {
@@ -259,12 +244,6 @@
       drag.p1 = [x, y];
       drag.previewShape = { type: drag.kind, p0: drag.p0, p1: drag.p1, headStyle: state.headStyle, ...newShapeBase() };
       renderDuringDrag();
-    } else if (drag.kind === 'ellipse') {
-      drag.p1 = [x, y];
-      const cx = (drag.p0[0] + drag.p1[0]) / 2, cy = (drag.p0[1] + drag.p1[1]) / 2;
-      const rx = Math.abs(drag.p1[0] - drag.p0[0]) / 2, ry = Math.abs(drag.p1[1] - drag.p0[1]) / 2;
-      drag.previewShape = { type: 'ellipse', cx, cy, rx, ry, filled: state.fill, fillColor: state.fillColor, ...newShapeBase() };
-      renderDuringDrag();
     } else if (drag.kind === 'move' && state.selected >= 0) {
       const dx = x - drag.last[0], dy = y - drag.last[1];
       translateShape(state.shapes[state.selected], dx, dy);
@@ -283,26 +262,11 @@
         const s = { type: drag.kind, p0: drag.p0, p1: drag.p1, ...newShapeBase() };
         if (drag.kind === 'arrow') s.headStyle = state.headStyle;
         state.shapes.push(s);
-      }
-    } else if (drag.kind === 'ellipse') {
-      const cx = (drag.p0[0] + drag.p1[0]) / 2, cy = (drag.p0[1] + drag.p1[1]) / 2;
-      const rx = Math.abs(drag.p1[0] - drag.p0[0]) / 2, ry = Math.abs(drag.p1[1] - drag.p0[1]) / 2;
-      if (rx > 2 && ry > 2) {
-        pushUndo();
-        state.shapes.push({ type: 'ellipse', cx, cy, rx, ry, filled: state.fill, fillColor: state.fillColor, ...newShapeBase() });
+        state.selected = state.shapes.length - 1; // auto-select so Copy/Duplicate work right away
       }
     }
     drag = null;
     render();
-  });
-
-  canvas.addEventListener('dblclick', () => {
-    if (state.tool === 'polygon' && polyPoints && polyPoints.length >= 3) {
-      pushUndo();
-      state.shapes.push({ type: 'polygon', points: polyPoints, closed: true, filled: state.fill, fillColor: state.fillColor, ...newShapeBase() });
-      polyPoints = null;
-      render();
-    }
   });
 
   canvas.addEventListener('wheel', (evt) => {
@@ -314,15 +278,7 @@
   window.addEventListener('keydown', (evt) => {
     const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName);
     if (typing) return;
-    if (evt.key === 'Enter' && state.tool === 'polygon' && polyPoints && polyPoints.length >= 2) {
-      pushUndo();
-      state.shapes.push({ type: 'polygon', points: polyPoints, closed: false, ...newShapeBase() });
-      polyPoints = null;
-      render();
-    } else if (evt.key === 'Escape') {
-      polyPoints = null;
-      render();
-    } else if ((evt.key === 'Delete' || evt.key === 'Backspace') && state.selected >= 0) {
+    if ((evt.key === 'Delete' || evt.key === 'Backspace') && state.selected >= 0) {
       pushUndo();
       state.shapes.splice(state.selected, 1);
       state.selected = -1;
@@ -343,7 +299,6 @@
       document.querySelectorAll('#tools .tool').forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
       state.tool = btn.dataset.tool;
-      polyPoints = null;
       updateHeadStyleUI();
       setStatus(`Outil : ${btn.textContent.trim()}`);
     });
@@ -436,8 +391,6 @@
     alert('VanovaTikZSketch — aide rapide\n\n'
       + 'Pen : dessine à main levée ; une forme presque fermée devient automatiquement une forme fermée (Auto-finish).\n'
       + 'Line / Arrow : cliquer-glisser.\n'
-      + 'Ellipse : cliquer-glisser (bounding box).\n'
-      + 'Polygon : cliquer chaque sommet, double-clic ou Entrée pour fermer, Échap pour annuler.\n'
       + 'Text : cliquer, puis taper (LaTeX autorisé, ex: $\\alpha$).\n'
       + 'Select : cliquer pour sélectionner/déplacer ; Suppr pour effacer.\n'
       + 'Ctrl/Cmd+Z annule, Ctrl/Cmd+Shift+Z refait, Ctrl/Cmd+C/V/D copie/colle/duplique.\n'
@@ -521,12 +474,12 @@
 
   /* --------------------------------------- shape: copy/paste/duplicate */
   function copySelected() {
-    if (state.selected < 0) return;
+    if (state.selected < 0) { setStatus('Aucune forme sélectionnée à copier (cliquez une forme, ou dessinez-en une).'); return; }
     state.clipboard = cloneShape(state.shapes[state.selected]);
     setStatus('Forme copiée.');
   }
   function pasteClipboard() {
-    if (!state.clipboard) return;
+    if (!state.clipboard) { setStatus('Presse-papiers vide -- copiez une forme d\'abord.'); return; }
     pushUndo();
     const s = cloneShape(state.clipboard);
     translateShape(s, 16, 16);
@@ -536,7 +489,7 @@
     setStatus('Forme collée.');
   }
   function duplicateSelected() {
-    if (state.selected < 0) return;
+    if (state.selected < 0) { setStatus('Aucune forme sélectionnée à dupliquer (cliquez une forme, ou dessinez-en une).'); return; }
     pushUndo();
     const s = cloneShape(state.shapes[state.selected]);
     translateShape(s, 16, 16);
@@ -596,35 +549,6 @@
     const [cx, cy] = bboxCenter(s);
     mapPoints(s, ([x, y]) => [cx - (y - cy), cy + (x - cx)]);
   }));
-
-  /* --------------------------------------------------------- presets */
-  // Choosing an item in the dropdown inserts it right away -- no separate
-  // "Insert preset" button needed.
-  const presetSelect = document.getElementById('preset-select');
-  const placeholderOpt = document.createElement('option');
-  placeholderOpt.value = '';
-  placeholderOpt.textContent = 'Insérer un preset…';
-  placeholderOpt.disabled = true;
-  placeholderOpt.selected = true;
-  presetSelect.appendChild(placeholderOpt);
-  Object.keys(PRESET_LABELS).forEach((key) => {
-    const opt = document.createElement('option');
-    opt.value = key;
-    opt.textContent = PRESET_LABELS[key];
-    presetSelect.appendChild(opt);
-  });
-  presetSelect.addEventListener('change', () => {
-    const name = presetSelect.value;
-    if (!name) return;
-    const shapes = buildPreset(name, canvas.width / 2, canvas.height / 2, state.color, state.width);
-    if (shapes.length) {
-      pushUndo();
-      state.shapes.push(...shapes);
-      render();
-      setStatus(`Preset inséré : ${PRESET_LABELS[name]}`);
-    }
-    presetSelect.value = '';
-  });
 
   render();
   applyZoom();
