@@ -14,7 +14,13 @@ function colorName(hex) {
 function collectColors(shapes) {
   const map = new Map();
   for (const s of shapes) {
-    for (const hex of [s.color, s.fillColor]) {
+    // stroke color is always used; fillColor only matters when the shape is
+    // actually filled -- otherwise we'd emit a \definecolor that never
+    // appears in any \draw, which is confusing (looks broken) even though
+    // it's harmless to LaTeX itself.
+    const hexes = [s.color];
+    if (s.filled && s.fillColor) hexes.push(s.fillColor);
+    for (const hex of hexes) {
       if (hex && hex.toLowerCase() !== '#000000' && !map.has(hex)) map.set(hex, colorName(hex));
     }
   }

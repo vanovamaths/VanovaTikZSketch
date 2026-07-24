@@ -26,6 +26,7 @@
     lineStyle: 'solid',
     headStyle: 'stealth',
     bend: 0, // quiver-style curve amount (px) for the next line/arrow
+    fontsize: 16, // text size for the next label (object names, symbols)
     autoFinish: true,
     snapGrid: false,
     showGrid: false,
@@ -213,7 +214,7 @@
       const txt = prompt('Text (LaTeX allowed, e.g. $\\alpha$):', '');
       if (txt) {
         pushUndo();
-        state.shapes.push({ type: 'text', x, y, text: txt, latex: true, color: state.color, fontsize: 16 });
+        state.shapes.push({ type: 'text', x, y, text: txt, latex: true, color: state.color, fontsize: state.fontsize });
         state.selected = state.shapes.length - 1; // auto-select so Copy/Duplicate work right away
         render();
       }
@@ -312,8 +313,10 @@
     const sel = state.selected >= 0 ? state.shapes[state.selected] : null;
     const showHead = state.tool === 'arrow' || (sel && sel.type === 'arrow');
     const showCurve = state.tool === 'line' || state.tool === 'arrow' || (sel && (sel.type === 'line' || sel.type === 'arrow'));
+    const showFontsize = state.tool === 'text' || (sel && sel.type === 'text');
     document.getElementById('head-style-group').style.display = showHead ? 'flex' : 'none';
     document.getElementById('curve-group').style.display = showCurve ? 'flex' : 'none';
+    document.getElementById('fontsize-group').style.display = showFontsize ? 'flex' : 'none';
   }
 
   function syncControlsToSelection() {
@@ -329,6 +332,12 @@
       document.getElementById('curve-slider').value = bend;
       document.getElementById('curve-value').textContent = bend;
       state.bend = bend;
+    }
+    if (s.type === 'text') {
+      const fs = s.fontsize || 16;
+      document.getElementById('fontsize-slider').value = fs;
+      document.getElementById('fontsize-value').textContent = fs;
+      state.fontsize = fs;
     }
   }
 
@@ -390,6 +399,12 @@
     if (s && (s.type === 'line' || s.type === 'arrow')) {
       pushUndo(); s.bend = state.bend; render();
     }
+  });
+  document.getElementById('fontsize-slider').addEventListener('input', (e) => {
+    state.fontsize = parseInt(e.target.value, 10);
+    document.getElementById('fontsize-value').textContent = state.fontsize;
+    const s = state.selected >= 0 ? state.shapes[state.selected] : null;
+    if (s && s.type === 'text') { pushUndo(); s.fontsize = state.fontsize; render(); }
   });
   document.getElementById('btn-reverse-arrow').addEventListener('click', () => {
     const s = state.selected >= 0 ? state.shapes[state.selected] : null;
@@ -473,6 +488,25 @@
     a.href = URL.createObjectURL(blob);
     a.download = 'figure.svg';
     a.click();
+  });
+  document.getElementById('btn-download-png').addEventListener('click', () => {
+    // Render onto a plain off-screen canvas (true white background, no
+    // grid, no selection box) so the downloaded PNG matches the SVG/TikZ
+    // export rather than the softened editing-canvas tint or UI overlays.
+    const off = document.createElement('canvas');
+    off.width = canvas.width;
+    off.height = canvas.height;
+    const offCtx = off.getContext('2d');
+    offCtx.fillStyle = '#ffffff';
+    offCtx.fillRect(0, 0, off.width, off.height);
+    for (const s of state.shapes) renderShape(offCtx, s, false);
+    off.toBlob((blob) => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'figure.png';
+      a.click();
+      setStatus('PNG exported.');
+    }, 'image/png');
   });
 
   /* --------------------------------------------------- view: zoom/fit */
