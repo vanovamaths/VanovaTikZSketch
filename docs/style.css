@@ -105,7 +105,7 @@ input[type="color"] {
 }
 
 #canvas {
-  background: #ffffff;
+  background: #f7f6f1;
   border-radius: 4px;
   box-shadow: 0 0 0 1px var(--border), 0 12px 30px rgba(0,0,0,0.35);
   cursor: crosshair;
@@ -125,7 +125,7 @@ input[type="color"] {
 .panel-title { color: var(--muted); font-weight: 600; }
 
 #preview-wrap {
-  background: #ffffff;
+  background: #f7f6f1;
   border: 1px solid var(--border);
   border-radius: 6px;
   height: 220px;
