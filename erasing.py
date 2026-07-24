@@ -1,22 +1,4 @@
-"""
-erasing.py
-Real partial erasing: instead of deleting an entire shape when the eraser
-touches it, cut out only the portion under the eraser and keep the rest as
-separate shapes (like a physical eraser on paper).
 
-Approach: sample each shape into a dense polyline, drop the sample points
-that fall inside the eraser circle, split what's left into contiguous runs,
-and rebuild a shape per run (a smooth curve is refit through curvefit.py so
-it stays a clean Bezier; a straight edge/line is kept exactly straight).
-
-v4: variable-width strokes (pen pressure) keep a sensible width after
-erasing — each surviving fragment gets the average width of the erased
-stroke's pressure profile over that fragment.
-
-Ellipses and text labels aren't split (an arc/letter cut in half isn't a
-meaningful "shape" on its own) — those are still removed as a whole when hit,
-handled by the caller.
-"""
 from __future__ import annotations
 import math
 from typing import List, Optional
@@ -65,8 +47,7 @@ def _sample_bezier_stroke(segments, n_per_seg=16):
 
 
 def _sample_stroke_widths(widths, n_segments, n_per_seg=16):
-    """Per-sample width, matching _sample_bezier_stroke's sampling pattern:
-    linear interpolation of the node widths along each segment."""
+   
     out = []
     for k in range(n_segments):
         w0, w1 = widths[k], widths[k + 1]
@@ -96,20 +77,11 @@ def _split_runs(points: List[tuple], keep_mask: List[bool]):
 
 
 def erase_shape(shape: Shape, center: tuple, radius: float) -> Optional[List[Shape]]:
-    """
-    Returns:
-      None                -> shape type not supported for partial erase
-                              (caller should fall back to whole-shape delete)
-      [shape] (same obj)   -> nothing in this shape was inside the eraser
-      [] or [new shapes]   -> replacement fragments (possibly empty)
-    """
+   
     cx, cy = center
 
     if isinstance(shape, Arrow):
-        # sample the REAL visual path (a curved edge if shape.bend != 0),
-        # not the straight chord, so erasing a bent arrow is geometrically
-        # correct; fragments come out straight (bend=0), which is the same
-        # simplification BezierStroke fragments already make.
+       
         pts = edge_geom.sample_edge(shape.p0, shape.p1, getattr(shape, "bend", 0.0), 50)
         mask = [math.hypot(x - cx, y - cy) > radius for (x, y) in pts]
         if all(mask):
