@@ -25,7 +25,8 @@ function shapeBBox(s) {
     return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
   }
   if (s.type === 'text') {
-    const w = Math.max(20, 8 * s.text.length);
+    const disp = typeof latexToDisplay === 'function' ? latexToDisplay(s.text) : s.text;
+    const w = Math.max(20, 8 * disp.length);
     return [s.x, s.y - 10, s.x + w, s.y + 10];
   }
   return [0, 0, 0, 0];
@@ -194,7 +195,8 @@ function renderShape(ctx, s, selected) {
     ctx.fillStyle = s.color;
     ctx.font = `${s.fontsize || 16}px "Latin Modern Math", "Cambria Math", Georgia, serif`;
     ctx.textBaseline = 'middle';
-    ctx.fillText(s.text, s.x, s.y);
+    const displayText = typeof latexToDisplay === 'function' ? latexToDisplay(s.text) : s.text;
+    ctx.fillText(displayText, s.x, s.y);
   }
   if (selected) {
     const bb = shapeBBox(s);
