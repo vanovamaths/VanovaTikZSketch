@@ -1,15 +1,4 @@
-"""
-edge_geom.py  (v4.4)
-Pure-math geometry for "Quiver-style" curved edges (Line/Arrow with a `bend`
-parameter, like Quiver's Curve slider). Kept Qt-independent so the math is
-testable headless and shared between rendering (render.py), TikZ export
-(tikz_export.py) and partial erasing (erasing.py).
 
-An edge from P0 to P1 with bend `b` in [-1, 1] is a single QUADRATIC Bezier
-P0 -> Q -> P1, where Q is the midpoint pushed sideways (perpendicular to the
-chord) by `b * 0.5 * |P1-P0|`. b=0 is a straight line; b=+/-1 is a strong
-arc, matching Quiver's "Curve" control by feel.
-"""
 from __future__ import annotations
 import math
 from typing import List, Tuple
@@ -31,8 +20,7 @@ def control_point(p0: Point, p1: Point, bend: float) -> Point:
 
 
 def quad_to_cubic(p0: Point, q: Point, p1: Point) -> Tuple[Point, Point]:
-    """Exact quadratic -> cubic Bezier control point conversion (degree
-    elevation): the resulting cubic traces IDENTICALLY the same curve."""
+
     c1 = (p0[0] + 2.0 / 3.0 * (q[0] - p0[0]), p0[1] + 2.0 / 3.0 * (q[1] - p0[1]))
     c2 = (p1[0] + 2.0 / 3.0 * (q[0] - p1[0]), p1[1] + 2.0 / 3.0 * (q[1] - p1[1]))
     return c1, c2
@@ -46,7 +34,7 @@ def point_on_quad(t: float, p0: Point, q: Point, p1: Point) -> Point:
 
 
 def tangent_on_quad(t: float, p0: Point, q: Point, p1: Point) -> Point:
-    """Derivative direction (not normalized) of the quadratic at parameter t."""
+   
     dx = 2 * (1 - t) * (q[0] - p0[0]) + 2 * t * (p1[0] - q[0])
     dy = 2 * (1 - t) * (q[1] - p0[1]) + 2 * t * (p1[1] - q[1])
     return (dx, dy)
@@ -70,12 +58,7 @@ def chord_normal(p0: Point, p1: Point) -> Point:
 
 
 def parallel_endpoints(p0: Point, p1: Point, offset: float) -> Tuple[Point, Point]:
-    """Endpoints of the edge translated sideways by `offset` px. Reusing the
-    SAME bend value with these shifted endpoints reproduces the original
-    curve translated as a whole (the quadratic control point translates by
-    the same vector, since it is chord-normal-relative) -- an exact,
-    Bezier-exact way to draw a 'double' (mono/faithful-style) parallel
-    stroke, used identically on-screen and in the TikZ export."""
+    
     nx, ny = chord_normal(p0, p1)
     dx, dy = nx * offset, ny * offset
     return (p0[0] + dx, p0[1] + dy), (p1[0] + dx, p1[1] + dy)
