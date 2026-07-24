@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VanovaTikZSketch — hand-drawn geometry to LaTeX/TikZ</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header id="toolbar">
+    <!-- Row 1: Tools -->
+    <div class="tb-row">
+      <div class="tb-group" id="tools">
+        <button data-tool="select" class="tool active" title="Select / Move (V)">&#9654; Select</button>
+        <button data-tool="pen" class="tool" title="Pen (freehand)">&#9998; Pen</button>
+        <button data-tool="line" class="tool" title="Line">&#9585; Line</button>
+        <button data-tool="arrow" class="tool" title="Arrow">&#8594; Arrow</button>
+        <button data-tool="ellipse" class="tool" title="Ellipse / Circle">&#9711; Ellipse</button>
+        <button data-tool="polygon" class="tool" title="Polygon (click points, Enter/dbl-click to close)">&#11040; Polygon</button>
+        <button data-tool="text" class="tool" title="Text / LaTeX">T Text</button>
+        <button data-tool="eraser" class="tool" title="Eraser">&#9003; Eraser</button>
+      </div>
+      <div class="tb-sep"></div>
+      <div class="tb-group">
+        <button id="btn-undo" title="Undo (Ctrl+Z)">&#8630; Undo</button>
+        <button id="btn-redo" title="Redo (Ctrl+Shift+Z)">&#8631; Redo</button>
+        <button id="btn-delete" title="Delete selected (Del)">Delete</button>
+      </div>
+      <div class="tb-sep"></div>
+      <div class="tb-group">
+        <button id="btn-new" title="New blank window (Ctrl+Shift+N)">New</button>
+        <button id="btn-new-window" title="New blank window">&#10064; New window</button>
+        <button id="btn-open" title="Open project (.json)">Open</button>
+        <button id="btn-save" title="Save project (.json)">Save</button>
+        <button id="btn-help" title="Help">Help</button>
+      </div>
+    </div>
+
+    <!-- Row 2: Design (style / options / presets) -->
+    <div class="tb-row">
+      <div class="tb-group">
+        <button id="btn-clear" title="Clear all">Clear all</button>
+      </div>
+      <div class="tb-sep"></div>
+      <div class="tb-group">
+        <span class="tb-label">Stroke</span>
+        <div id="palette"></div>
+        <input type="color" id="color-picker" value="#000000" title="Custom color" />
+      </div>
+      <div class="tb-group">
+        <span class="tb-label">Width</span>
+        <input type="range" id="width-slider" min="1" max="10" step="0.5" value="2.5" />
+        <span id="width-value">2.5</span>
+      </div>
+      <div class="tb-sep"></div>
+      <div class="tb-group">
+        <label><input type="checkbox" id="fill-toggle" /> Fill</label>
+        <input type="color" id="fill-color" value="#cccccc" title="Fill color" />
+      </div>
+      <div class="tb-group" id="head-style-group" style="display:none;">
+        <span class="tb-label">Head</span>
+        <select id="head-style">
+          <option value="stealth">Stealth</option>
+          <option value="classical">Classical</option>
+          <option value="harpoon">Harpoon</option>
+          <option value="none">None</option>
+        </select>
+      </div>
+      <div class="tb-group">
+        <span class="tb-label">Line</span>
+        <select id="line-style">
+          <option value="solid">Solid</option>
+          <option value="dashed">Dashed</option>
+          <option value="dotted">Dotted</option>
+        </select>
+      </div>
+      <div class="tb-sep"></div>
+      <div class="tb-group">
+        <label><input type="checkbox" id="auto-finish" checked /> Auto-finish</label>
+        <label><input type="checkbox" id="snap-grid" /> Snap to grid</label>
+        <label><input type="checkbox" id="show-grid" /> Show grid</label>
+      </div>
+      <div class="tb-sep"></div>
+      <div class="tb-group">
+        <span class="tb-label">Presets</span>
+        <select id="preset-select"></select>
+        <button id="btn-insert-preset">Insert preset</button>
+      </div>
+    </div>
+
+    <!-- Row 3: Navigation + Arrange -->
+    <div class="tb-row">
+      <div class="tb-group">
+        <span class="tb-label">View</span>
+        <button id="btn-zoom-out" title="Zoom out">&minus;</button>
+        <span id="zoom-label">100%</span>
+        <button id="btn-zoom-in" title="Zoom in">+</button>
+        <button id="btn-zoom-reset" title="Reset zoom to 100%">100%</button>
+        <button id="btn-fit" title="Frame the whole drawing">Fit to drawing</button>
+      </div>
+      <div class="tb-sep"></div>
+      <div class="tb-group">
+        <span class="tb-label">Shape</span>
+        <button id="btn-copy-shape" title="Copy (Ctrl/Cmd+C)">Copy</button>
+        <button id="btn-paste-shape" title="Paste (Ctrl/Cmd+V)">Paste</button>
+        <button id="btn-duplicate-shape" title="Duplicate (Ctrl/Cmd+D)">Duplicate</button>
+      </div>
+      <div class="tb-sep"></div>
+      <div class="tb-group">
+        <span class="tb-label">Order</span>
+        <button id="btn-front" title="Bring to front">Bring to front</button>
+        <button id="btn-forward" title="Forward">Forward</button>
+        <button id="btn-backward" title="Backward">Backward</button>
+        <button id="btn-back" title="Send to back">Send to back</button>
+      </div>
+      <div class="tb-sep"></div>
+      <div class="tb-group">
+        <span class="tb-label">Transform</span>
+        <button id="btn-flip-h" title="Mirror left-right">Flip H</button>
+        <button id="btn-flip-v" title="Mirror top-bottom">Flip V</button>
+        <button id="btn-rotate" title="Rotate 90° clockwise">Rotate 90&deg;</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="workspace">
+    <div id="canvas-wrap">
+      <canvas id="canvas" width="1000" height="700"></canvas>
+    </div>
+    <aside id="side-panel">
+      <div class="panel-title">Live preview</div>
+      <div id="preview-wrap"><canvas id="preview-canvas" width="360" height="220"></canvas></div>
+
+      <div class="panel-title">TikZ code (updated live)</div>
+      <textarea id="tikz-output" readonly spellcheck="false"></textarea>
+      <div class="panel-buttons">
+        <button id="btn-copy">Copy code</button>
+        <button id="btn-download-tex">Export .tex</button>
+        <button id="btn-download-svg">Export SVG</button>
+      </div>
+    </aside>
+  </main>
+
+  <footer id="statusbar">
+    <span id="status-text">Ready.</span>
+    <span id="hint-text">Made with VanovaTikZSketch — free, runs entirely in your browser, nothing uploaded.</span>
+  </footer>
+
+  <input type="file" id="file-input" accept="application/json" style="display:none" />
+
+  <script src="js/smoothing.js"></script>
+  <script src="js/curvefit.js"></script>
+  <script src="js/shapes.js"></script>
+  <script src="js/tikz-export.js"></script>
+  <script src="js/presets.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
