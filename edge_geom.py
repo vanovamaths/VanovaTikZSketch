@@ -41,9 +41,7 @@ def tangent_on_quad(t: float, p0: Point, q: Point, p1: Point) -> Point:
 
 
 def sample_edge(p0: Point, p1: Point, bend: float, n: int = 24) -> List[Point]:
-    """Polyline approximation of the edge (straight if bend==0), used for
-    hit-testing / partial erasing so a curved arrow erases along its real
-    visual path rather than the straight chord."""
+    
     if not bend:
         return [(p0[0] + (p1[0] - p0[0]) * i / (n - 1),
                  p0[1] + (p1[1] - p0[1]) * i / (n - 1)) for i in range(n)]
