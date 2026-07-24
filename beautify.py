@@ -1,24 +1,4 @@
-"""
-beautify.py  (v4.1)
-"Machine finish": one global pass that re-idealizes EVERY shape of the
-drawing so the final figure looks produced by design software, not traced
-by hand.
 
-Per shape:
-- BezierStroke: re-sampled and re-classified. A near-circle becomes a perfect
-  Ellipse, a near-straight stroke becomes a Line, a cornered outline becomes
-  a Polygon. Anything organic (genus-g silhouette, handle, lens...) is
-  cleaned, fully symmetrized, then FAIRED with Taubin smoothing (lambda/mu
-  scheme: smooths curvature without shrinking the shape -- the classic
-  'French curve' look) and refit with a tight tolerance into a few long,
-  confident Bezier curves of constant width.
-- Line / Arrow: the angle is snapped to the nearest 15 degrees when it is
-  within 4 degrees of it (rotation around the midpoint, length preserved) --
-  almost-horizontal lines become exactly horizontal, etc.
-- Ellipse / Text: already ideal, kept as-is.
-
-Everything is deterministic geometry (least squares + smoothing), no AI model.
-"""
 from __future__ import annotations
 import math
 from typing import List
