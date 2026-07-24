@@ -1,26 +1,4 @@
-"""
-revolve3d.py
-Automatic 2D -> 3D transform: turns a selected 2D shape into a genuine 3D
-surface of revolution (a circle -> sphere, an ellipse -> ellipsoid, a
-lens/handle silhouette -> a solid of revolution, a genus-g outline -> a
-"vase"-like revolved surface...), and exports it as real, compilable
-pgfplots/TikZ 3D code (a \\addplot3[surf] mesh), not just a flat drawing.
 
-Method:
-1. Sample the shape's outline into a dense polyline (reusing the same
-   samplers as erasing.py so every shape type behaves consistently).
-2. Take the shape's own vertical symmetry axis (the horizontal midpoint of
-   its bounding box) as the axis of revolution.
-3. For a fixed number of height levels spanning the shape, measure the
-   silhouette radius (max horizontal distance from the axis at that height)
-   -> a profile r(h). This works for any closed OR open outline, not just
-   already-symmetric ones.
-4. Revolve that profile 360 degrees around the vertical axis to build a
-   (n_profile x n_theta) grid of 3D points -> a watertight surface mesh.
-5. Emit that mesh as pgfplots `\\addplot3[surf] coordinates {...}` (rows
-   separated by a blank line = one height level each, columns = angle) --
-   verified by actually compiling with pdflatex + pgfplots in a sandbox.
-"""
 from __future__ import annotations
 import math
 from typing import List, Optional, Tuple

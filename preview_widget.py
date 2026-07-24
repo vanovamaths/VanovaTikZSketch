@@ -1,12 +1,4 @@
-"""
-preview_widget.py
-Read-only live preview: shows the design as it will actually look once
-exported (no grid, no selection highlight, no in-progress tool overlay),
-auto-scaled to fit the panel. Updates live whenever the drawing changes.
 
-v4.11: 3D mode removed entirely (real 3D revolution and the fake rotating
-plate) -- this is now a plain flat 2D preview.
-"""
 from __future__ import annotations
 
 from PyQt5.QtCore import Qt

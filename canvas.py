@@ -1,25 +1,4 @@
-"""
-canvas.py
-Drawing area. Handles both mouse AND graphics tablet input (XP-Pen, Wacom...)
-via QTabletEvent (position + pressure). Tools: pen (freehand -> smoothed into
-Beziers, with optional auto-finish -> perfect shapes OR cleaned-up organic
-outline), line, arrow, ellipse, polygon, pen/bezier tool (Illustrator-style),
-text/LaTeX, eraser (real partial erase), select/move, preset insertion.
-Full undo/redo.
 
-v4 — performance & rendering upgrades:
-- Backing-store cache: committed shapes are rendered once into a QPixmap at
-  the real device pixel ratio (crisp on Retina/HiDPI). Each paint event just
-  blits that pixmap and draws the live stroke on top -> tablet latency no
-  longer grows with the number of shapes on the canvas.
-- Dirty-rect repaints while inking: only the region around the newest stroke
-  segment is repainted, not the whole canvas.
-- Input conditioning: sub-pixel tablet positions, minimum-distance filtering
-  and exponential smoothing of pressure -> stable, clean ink.
-- Pen pressure -> variable stroke width (toggleable), carried through commit,
-  rendering, project files and TikZ/SVG export.
-- SVG export (true vector, infinite resolution) + adjustable-scale PNG.
-"""
 from __future__ import annotations
 import copy
 import math

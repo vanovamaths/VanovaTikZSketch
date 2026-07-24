@@ -1,15 +1,4 @@
-"""
-shape_transform.py  (v4.7)
-Generic per-shape transforms -- flip horizontal, flip vertical, rotate 90
-degrees -- that work across every Shape subtype (BezierStroke, Line/Arrow,
-Ellipse, Polygon, TextLabel). Used by the canvas's "Flip H", "Flip V" and
-"Rotate 90°" actions, filling the gap with dedicated vector-illustration
-apps (Graphic, Paint S...) that offer rotate/resize on any selected object.
 
-Each function returns a NEW shape (deep copy), transformed around the
-shape's OWN bounding-box center, so the object stays in place instead of
-jumping to the origin.
-"""
 from __future__ import annotations
 import copy
 from typing import Tuple

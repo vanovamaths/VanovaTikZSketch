@@ -1,14 +1,4 @@
-"""
-curvefit.py
-Ajustement d'un trait a main levee (nuage de points bruite issu de la tablette)
-par une suite de courbes de Bezier cubiques, avec continuite C1 aux jonctions.
 
-Implementation adaptee de l'algorithme de Philip J. Schneider
-("An Algorithm for Automatically Fitting Digitized Curves", Graphics Gems, 1990),
-reecrite ici en numpy. Domaine public / algorithme classique.
-
-Fonction principale : fit_curve(points, max_error) -> list[(P0, C1, C2, P3)]
-"""
 from __future__ import annotations
 import numpy as np
 
@@ -79,26 +69,12 @@ def _generate_bezier(points, u, t_hat1, t_hat2):
         alpha_l = det_XC1 / det_C0C1
         alpha_r = det_C0X / det_C0C1
 
-    # seg_len (straight p0->p3 distance) degenerates to ~0 on a CLOSED curve's
-    # very first fit attempt, since points[0] and points[-1] are (nearly) the
-    # same point even though the arc between them is the whole loop. When
-    # that happens the classic Schneider "too small -> fall back to seg_len/3"
-    # guard never fires (eps collapses to ~0 too), so an ill-conditioned
-    # linear system (near-singular det_C0C1) can hand back an enormous or
-    # negative alpha and the control points shoot off far outside the
-    # drawing's bounding box. Use the polyline's actual arc length as a
-    # size reference instead, and clamp alpha on BOTH sides (too small AND
-    # too large), not just the too-small side.
+    
     seg_len = np.linalg.norm(p0 - p3)
     arc_len = 0.0
     for i in range(1, len(points)):
         arc_len += np.linalg.norm(points[i] - points[i - 1])
-    # Bound alpha by the SPAN of this point subset (its bounding-box
-    # diagonal), not by arc_len: on a closed loop's first fit attempt
-    # arc_len is the whole circumference while the chord p0->p3 is ~0, and
-    # neither of those is the right yardstick for "how far a control point
-    # may reasonably sit from its endpoint" -- a control point should never
-    # need to reach further than the region the points themselves occupy.
+    
     diag = float(np.hypot(points[:, 0].max() - points[:, 0].min(),
                            points[:, 1].max() - points[:, 1].min()))
     ref_len = seg_len if seg_len > 1e-6 else (arc_len / 3.0 if arc_len > 1e-6 else 1.0)
@@ -167,15 +143,7 @@ def _unit_tangent(a, b):
 
 
 def adaptive_max_error(points_xy, ratio: float = 0.012, lo: float = 1.2, hi: float = 22.0) -> float:
-    """
-    "Smooth finish" support: a fixed pixel max_error (e.g. 3.0) means a big
-    drawing gets fit with lots of short segments (looks hand-drawn / jittery)
-    while a tiny drawing gets over-simplified. Scaling the tolerance to the
-    stroke's own size gives a consistent, size-independent result: fewer,
-    longer, cleaner curve segments -- closer to what a vector-tracing tool
-    (Illustrator "Image Trace", potrace...) would produce -- regardless of
-    whether the design is drawn small or large on the canvas.
-    """
+
     pts = np.array([[float(x), float(y)] for (x, y) in points_xy], dtype=float)
     if len(pts) < 2:
         return lo
@@ -185,15 +153,7 @@ def adaptive_max_error(points_xy, ratio: float = 0.012, lo: float = 1.2, hi: flo
 
 
 def _fit_curve_closed(core: "np.ndarray", max_error: float, n_split: int = 4):
-    """Fits a CLOSED loop (core[0] is meant to reconnect to core[-1]) by
-    pre-splitting it into a handful of open arcs and fitting each one
-    separately, instead of handing the whole loop to _fit_cubic as one
-    piece. A single full-loop fit is degenerate for Schneider's algorithm:
-    the start/end points are the same point while the chord between them is
-    the entire circumference, so the least-squares tangent-scale solve
-    (alpha_l/alpha_r) can become ill-conditioned and place control points
-    far outside the drawing. Splitting first means every piece _fit_cubic
-    ever sees has a genuine, non-degenerate chord."""
+    
     m = len(core)
     n_split = max(2, min(n_split, m // 3)) if m >= 6 else 1
     idxs = [int(round(i * m / n_split)) for i in range(n_split)]
@@ -214,11 +174,7 @@ def _fit_curve_closed(core: "np.ndarray", max_error: float, n_split: int = 4):
 
 
 def fit_curve(points_xy, max_error: float = 4.0):
-    """
-    points_xy : liste de (x, y) capturee sur le canvas (deja simplifiee/filtree).
-    max_error : erreur quadratique max toleree (en pixels^2 approx).
-    Retourne une liste de segments (P0, C1, C2, P3) avec P0,C1,C2,P3 = tuples (x,y).
-    """
+   
     pts = np.array([[float(x), float(y)] for (x, y) in points_xy], dtype=float)
     dedup = [pts[0]]
     for p in pts[1:]:
@@ -229,9 +185,7 @@ def fit_curve(points_xy, max_error: float = 4.0):
         p = tuple(pts[0]) if len(pts) else (0.0, 0.0)
         return [(p, p, p, p)]
 
-    # A CLOSED stroke is passed in here with its first and last points
-    # coincident (the caller duplicates the start point to close the loop).
-    # That's the degenerate case _fit_curve_closed exists for.
+   
     if len(pts) >= 6 and np.linalg.norm(pts[0] - pts[-1]) < 1e-3:
         out = _fit_curve_closed(pts[:-1], max_error)
         return [tuple(tuple(map(float, pt)) for pt in seg) for seg in out]
