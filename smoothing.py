@@ -1,19 +1,4 @@
-"""
-smoothing.py
-"Finition automatique" : nettoie un trait a main levee (jitter du poignet,
-petites cassures, epaisseur irreguliere du contour) AVANT de le vectoriser,
-meme quand ce n'est ni une ligne, ni un cercle, ni un polygone net — le cas
-d'un contour organique ferme (silhouette de surface, anse/lentille...) comme
-sur tes schemas de topologie.
 
-Principe (classique, deterministe, pas de reseau de neurones) :
-1. Reechantillonnage a pas curviligne constant (elimine les zones ou le
-   stylet a ralenti/accelere, source de jitter).
-2. Lissage circulaire (moyenne glissante ponderee, plusieurs passes) qui
-   attenue les petites irregularites sans deformer la forme generale.
-3. Pour un contour FERME : lissage periodique (le debut et la fin du trait
-   sont recollees proprement, plus de "decalage" au point de fermeture).
-"""
 from __future__ import annotations
 import numpy as np
 
@@ -103,20 +88,7 @@ def clean_stroke(points_xy, closed: bool, n_samples: int = 110, passes: int = 10
 
 
 def symmetrize_closed_curve(points_xy, strength: float = 0.7, n_samples: int = 160):
-    """
-    Forces a closed, roughly star-shaped outline (a hand-drawn blob, a
-    genus-g silhouette, a lens/eye mark...) to become bilaterally symmetric
-    about its principal axis — this is the single biggest visual tell that a
-    diagram was drawn by hand rather than made "by a machine": real hand
-    strokes are never quite symmetric.
-
-    Method: express the boundary in polar coordinates around its centroid,
-    r(theta); average r(theta) with r(reflected theta) about the PCA
-    principal axis; rebuild the point cloud from the symmetrized radius.
-    `strength` in [0, 1] controls how fully symmetry is enforced (1.0 =
-    perfectly symmetric, 0.0 = unchanged). Correspondence-free: point order
-    is preserved so the result can go straight into clean_stroke/fit_curve.
-    """
+   
     pts = np.array([(float(x), float(y)) for (x, y) in points_xy])
     if len(pts) < 8:
         return [tuple(p) for p in pts]
