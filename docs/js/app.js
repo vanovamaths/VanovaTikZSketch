@@ -82,7 +82,7 @@
   // then do one full render() on pointerup so everything stays in sync.
   function renderCanvas() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#f7f6f1'; // soft off-white instead of pure #fff -- easier on the eyes
+    ctx.fillStyle = '#ece7da'; // soft off-white instead of pure #fff -- easier on the eyes
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     drawGrid(canvas, ctx);
     state.shapes.forEach((s, i) => renderShape(ctx, s, i === state.selected));
@@ -115,7 +115,7 @@
 
   function renderPreview() {
     previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
-    previewCtx.fillStyle = '#f7f6f1';
+    previewCtx.fillStyle = '#ece7da';
     previewCtx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
     if (!state.shapes.length) return;
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
