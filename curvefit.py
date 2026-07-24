@@ -1,14 +1,4 @@
-"""
-curvefit.py
-Ajustement d'un trait a main levee (nuage de points bruite issu de la tablette)
-par une suite de courbes de Bezier cubiques, avec continuite C1 aux jonctions.
 
-Implementation adaptee de l'algorithme de Philip J. Schneider
-("An Algorithm for Automatically Fitting Digitized Curves", Graphics Gems, 1990),
-reecrite ici en numpy. Domaine public / algorithme classique.
-
-Fonction principale : fit_curve(points, max_error) -> list[(P0, C1, C2, P3)]
-"""
 from __future__ import annotations
 import numpy as np
 
