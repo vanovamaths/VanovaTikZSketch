@@ -1,15 +1,4 @@
-"""
-latex_render.py  (v4.3)
-Keyboard-typed labels, Quiver-diagram philosophy: you type real LaTeX
-(\\varphi, \\to, \\Sigma_g, x^2...) with the Text/LaTeX tool or "Name (L)" --
-no drawing needed for letters. This module converts that LaTeX source into
-readable on-screen Unicode (Greek letters, arrows, operators, sub/superscripts)
-for the canvas/preview, while the STORED text stays the real LaTeX source, so
-TikZ/SVG/.tex export keeps compiling exactly as typed.
 
-This is a best-effort Unicode approximation for on-screen display (Qt has no
-LaTeX engine) -- it is not used for export.
-"""
 from __future__ import annotations
 import re
 
