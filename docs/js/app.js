@@ -1,8 +1,5 @@
-/*
- * app.js
- * Canvas interaction, toolbar wiring, undo/redo, live preview, TikZ live
- * export. Vanilla JS, no build step -- works straight from GitHub Pages.
- */
+
+
 
 (function () {
   const canvas = document.getElementById('canvas');
