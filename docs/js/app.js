@@ -12,8 +12,14 @@
   const statusText = document.getElementById('status-text');
   const canvasWrap = document.getElementById('canvas-wrap');
 
-  const PALETTE = ['#000000', '#ffffff', '#e53935', '#1e88e5', '#43a047',
-    '#fdd835', '#fb8c00', '#8e24aa', '#00acc1', '#6d4c41'];
+  const PALETTE = [
+    '#000000', '#495057', '#9e9e9e', '#ffffff',
+    '#e53935', '#d32f2f', '#f06292', '#8e24aa',
+    '#7e57c2', '#5c6bc0', '#1e88e5', '#1565c0',
+    '#00acc1', '#26c6da', '#26a69a', '#43a047',
+    '#66bb6a', '#c0ca33', '#fdd835', '#ffca28',
+    '#fb8c00', '#ff7043', '#6d4c41', '#78909c',
+  ];
   const GRID_STEP = 20;
 
   const state = {
@@ -106,11 +112,24 @@
     updateTikz();
   }
 
-  // Fast path used while actively dragging: repaint the canvas immediately
-  // (so the stroke/move feels instant) and coalesce the heavier side-panel
-  // refresh into at most one rAF tick, instead of once per pointer event.
+  // Fast path used while actively dragging: a fast mouse/tablet can fire
+  // pointermove far faster than the screen actually refreshes (500Hz+ on
+  // some trackpads/tablets). Coalescing the canvas repaint into a single
+  // requestAnimationFrame tick -- instead of redrawing once per raw pointer
+  // event -- caps the work to the display's real refresh rate, which is
+  // what makes drawing feel smooth/fluid instead of janky under load. The
+  // in-progress preview shape is already updated synchronously before this
+  // is called, so the rAF callback always paints the latest state.
+  let canvasRaf = null;
+  function scheduleCanvasRepaint() {
+    if (canvasRaf) return;
+    canvasRaf = requestAnimationFrame(() => {
+      canvasRaf = null;
+      renderCanvas();
+    });
+  }
   function renderDuringDrag() {
-    renderCanvas();
+    scheduleCanvasRepaint();
     scheduleSidePanelUpdate();
   }
 
@@ -263,6 +282,8 @@
       drag = { kind: 'pen', points: [[x, y]] };
     } else if (state.tool === 'line' || state.tool === 'arrow') {
       drag = { kind: state.tool, p0: [x, y], p1: [x, y] };
+    } else if (state.tool === 'ellipse') {
+      drag = { kind: 'ellipse', p0: [x, y], p1: [x, y] };
     } else if (state.tool === 'text') {
       const txt = prompt('Text (LaTeX allowed, e.g. $\\alpha$):', '');
       if (txt) {
@@ -299,13 +320,19 @@
       drag.p1 = [x, y];
       drag.previewShape = { type: drag.kind, p0: drag.p0, p1: drag.p1, headStyle: state.headStyle, bend: state.bend, ...newShapeBase() };
       renderDuringDrag();
+    } else if (drag.kind === 'ellipse') {
+      drag.p1 = [x, y];
+      const cx = (drag.p0[0] + drag.p1[0]) / 2, cy = (drag.p0[1] + drag.p1[1]) / 2;
+      const rx = Math.abs(drag.p1[0] - drag.p0[0]) / 2, ry = Math.abs(drag.p1[1] - drag.p0[1]) / 2;
+      drag.previewShape = { type: 'ellipse', cx, cy, rx, ry, filled: state.fill, fillColor: state.fillColor, ...newShapeBase() };
+      renderDuringDrag();
     } else if (drag.kind === 'move' && state.selected >= 0) {
       const dx = x - drag.last[0], dy = y - drag.last[1];
       translateShape(state.shapes[state.selected], dx, dy);
       drag.last = [x, y];
       renderDuringDrag();
     }
-  });
+  }, { passive: true });
 
   canvas.addEventListener('pointerup', () => {
     if (!drag) return;
@@ -318,6 +345,17 @@
         if (drag.kind === 'arrow') s.headStyle = state.headStyle;
         state.shapes.push(s);
         state.selected = state.shapes.length - 1; // auto-select so Copy/Duplicate work right away
+      }
+    } else if (drag.kind === 'ellipse') {
+      const cx = (drag.p0[0] + drag.p1[0]) / 2, cy = (drag.p0[1] + drag.p1[1]) / 2;
+      const rx = Math.abs(drag.p1[0] - drag.p0[0]) / 2, ry = Math.abs(drag.p1[1] - drag.p0[1]) / 2;
+      if (rx > 2 || ry > 2) {
+        pushUndo();
+        state.shapes.push({
+          type: 'ellipse', cx, cy, rx: Math.max(rx, 1), ry: Math.max(ry, 1),
+          filled: state.fill, fillColor: state.fill ? state.fillColor : null, ...newShapeBase(),
+        });
+        state.selected = state.shapes.length - 1;
       }
     }
     drag = null;
@@ -410,6 +448,97 @@
     palette.appendChild(sw);
   });
 
+  /* --------------------------------------------- harmonious color palette
+   * Inspired by dedicated palette tools (Coolors/Paletton/Khroma): pick a
+   * base color and a color-theory scheme, get back a small set of hues that
+   * are guaranteed to look coherent together (rotations of the same base
+   * hue around the color wheel), instead of guessing complementary colors
+   * by eye. Pure HSL math, no external library needed. */
+  function hexToHsl(hex) {
+    const r = parseInt(hex.slice(1, 3), 16) / 255;
+    const g = parseInt(hex.slice(3, 5), 16) / 255;
+    const b = parseInt(hex.slice(5, 7), 16) / 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h, s;
+    const l = (max + min) / 2;
+    if (max === min) { h = 0; s = 0; } else {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h /= 6;
+    }
+    return [h * 360, s * 100, l * 100];
+  }
+  function hslToHex(h, s, l) {
+    h = ((h % 360) + 360) % 360; s = Math.min(100, Math.max(0, s)) / 100; l = Math.min(100, Math.max(0, l)) / 100;
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+    const m = l - c / 2;
+    let r = 0, g = 0, b = 0;
+    if (h < 60) { r = c; g = x; } else if (h < 120) { r = x; g = c; }
+    else if (h < 180) { g = c; b = x; } else if (h < 240) { g = x; b = c; }
+    else if (h < 300) { r = x; b = c; } else { r = c; b = x; }
+    const toHex = (v) => Math.round((v + m) * 255).toString(16).padStart(2, '0');
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+  }
+  const HARMONY_HUE_OFFSETS = {
+    complementary: [0, 180],
+    analogous: [-30, 0, 30],
+    triadic: [0, 120, 240],
+    tetradic: [0, 90, 180, 270],
+  };
+  function generateHarmoniousPalette(baseHex, scheme) {
+    const [h, s, l] = hexToHsl(baseHex);
+    const offsets = HARMONY_HUE_OFFSETS[scheme] || [0];
+    const colors = [];
+    offsets.forEach((dh) => {
+      colors.push(hslToHex(h + dh, s, l));
+      // a lighter tint of the same hue -- handy as a companion fill color
+      colors.push(hslToHex(h + dh, Math.max(20, s * 0.55), Math.min(88, l + 22)));
+    });
+    return colors;
+  }
+  const paletteGenerated = document.getElementById('palette-generated');
+  document.getElementById('btn-generate-palette').addEventListener('click', () => {
+    const base = document.getElementById('harmony-base').value;
+    const scheme = document.getElementById('harmony-scheme').value;
+    const colors = generateHarmoniousPalette(base, scheme);
+    paletteGenerated.innerHTML = '';
+    colors.forEach((hex) => {
+      const sw = document.createElement('div');
+      sw.className = 'swatch';
+      sw.style.background = hex;
+      sw.title = `${hex} -- click = stroke, Alt+click = fill`;
+      sw.addEventListener('click', (e) => {
+        if (e.altKey) {
+          state.fillColor = hex;
+          document.getElementById('fill-color').value = hex;
+          if (state.selected >= 0) { pushUndo(); state.shapes[state.selected].fillColor = hex; render(); }
+        } else {
+          state.color = hex;
+          document.getElementById('color-picker').value = hex;
+          document.querySelectorAll('#palette .swatch').forEach((s) => s.classList.remove('active'));
+          applyColorToSelection();
+        }
+      });
+      paletteGenerated.appendChild(sw);
+    });
+    setStatus(`Generated a ${scheme} palette from ${base}.`);
+  });
+
+  /* ------------------------------------------------------ sketchy style
+   * Togglable hand-drawn rendering (deterministic double-jittered stroke,
+   * implemented in shapes.js/renderShape) -- a lightweight, dependency-free
+   * take on the rough.js/Excalidraw look, since this project intentionally
+   * stays vanilla JS with no build step / no external libraries. */
+  document.getElementById('sketchy-mode').addEventListener('change', (e) => {
+    window.SKETCHY_MODE = e.target.checked;
+    render();
+    setStatus(window.SKETCHY_MODE ? 'Sketchy style on.' : 'Sketchy style off.');
+  });
+
   function applyColorToSelection() {
     if (state.selected >= 0) {
       pushUndo();
@@ -468,6 +597,38 @@
     render();                // negate bend too to keep the same visual curve
     setStatus('Direction reversed.');
   });
+  /* --------------------------------------------------------- presets */
+  const presetSelect = document.getElementById('preset-select');
+  if (presetSelect) {
+    PRESET_NAMES.forEach((name) => {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = PRESET_LABELS[name];
+      presetSelect.appendChild(opt);
+    });
+    document.getElementById('btn-insert-preset').addEventListener('click', () => {
+      const name = presetSelect.value;
+      // Insert centered on whatever part of the (now-infinite) canvas the
+      // user is currently looking at, rather than always at the top-left.
+      const cx = (canvasWrap.scrollLeft + canvasWrap.clientWidth / 2) / state.zoom;
+      const cy = (canvasWrap.scrollTop + canvasWrap.clientHeight / 2) / state.zoom;
+      pushUndo();
+      const newShapes = buildPreset(name, cx, cy, 1.0, state.color, state.width);
+      state.shapes.push(...newShapes);
+      let nb0 = Infinity, nb1 = Infinity, nb2 = -Infinity, nb3 = -Infinity;
+      for (const sh of newShapes) {
+        const bb = shapeBBox(sh);
+        nb0 = Math.min(nb0, bb[0]); nb1 = Math.min(nb1, bb[1]);
+        nb2 = Math.max(nb2, bb[2]); nb3 = Math.max(nb3, bb[3]);
+      }
+      growCanvasToInclude(nb2, nb3);
+      growCanvasToInclude(nb0, nb1);
+      state.selected = state.shapes.length - 1;
+      render();
+      setStatus(`Preset inserted: ${PRESET_LABELS[name] || name}`);
+    });
+  }
+
   document.getElementById('auto-finish').addEventListener('change', (e) => { state.autoFinish = e.target.checked; });
   document.getElementById('snap-grid').addEventListener('change', (e) => { state.snapGrid = e.target.checked; });
   document.getElementById('show-grid').addEventListener('change', (e) => { state.showGrid = e.target.checked; render(); });
@@ -490,8 +651,10 @@
     alert('VanovaTikZSketch — quick help\n\n'
       + 'Pen: freehand drawing; an almost-closed shape automatically becomes a closed shape (Auto-finish).\n'
       + 'Line / Arrow: click and drag.\n'
+      + 'Ellipse: click and drag (hold Fill to make it filled).\n'
       + 'Text: click, then type (LaTeX allowed, e.g. $\\alpha$).\n'
       + 'Select: click to select/move; Delete to remove.\n'
+      + 'Presets: pick a ready-made shape (circle, star, torus, lens...) and click Insert -- it drops centered on your current view.\n'
       + 'Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z redo, Ctrl/Cmd+C/V/D copy/paste/duplicate.\n'
       + 'Ctrl/Cmd + scroll wheel: zoom.\n'
       + 'The canvas grows automatically in every direction as you draw near an edge -- there is no fixed boundary.');
@@ -693,4 +856,3 @@
   applyZoom();
   setStatus('Ready.');
 })();
-

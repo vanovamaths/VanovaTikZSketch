@@ -6,6 +6,14 @@
 
 const HEAD_STYLES = ['stealth', 'classical', 'harpoon', 'none'];
 
+// Global toggle for the "Sketchy style" option: draws every shape's
+// outline as a hand-drawn-looking double pass (small, deterministic
+// per-point jitter) instead of a perfectly crisp line -- a lightweight,
+// dependency-free take on the effect made popular by rough.js/Excalidraw.
+// Kept as a simple global (rather than plumbed through every render call)
+// since it's a single app-wide display preference, toggled from app.js.
+window.SKETCHY_MODE = false;
+
 /** Quiver-style "bend": p0/p1 stay the straight endpoints, `bend` is a px
  * offset of a single quadratic-bezier control point, perpendicular to the
  * p0->p1 chord (positive = one side, negative = the other). Recomputed from
@@ -149,6 +157,71 @@ function flattenBezier([p0, c1, c2, p3], steps = 16) {
   return pts;
 }
 
+/* -------------------------------------------------------- sketchy style */
+// Deterministic per-point "randomness" (a stable hash, NOT Math.random()):
+// the same point always gets the same jitter, so the hand-drawn wobble
+// stays put across repaints instead of visibly vibrating every frame.
+function sketchHash(n) {
+  const v = Math.sin(n * 12.9898 + 78.233) * 43758.5453123;
+  return v - Math.floor(v); // -> stable value in [0, 1)
+}
+
+function jitterPoint(x, y, idx, amp, salt) {
+  const ang = sketchHash(idx * 0.6180339887 + salt) * Math.PI * 2;
+  const r = sketchHash(idx * 0.37 + salt + 7.13) * amp;
+  return [x + r * Math.cos(ang), y + r * Math.sin(ang)];
+}
+
+// Two overlapping, independently-jittered passes of the same outline is
+// the classic "rough sketch" look (what rough.js/Excalidraw do): each pass
+// alone is just a wobbly line, but two slightly different ones together
+// read unmistakably as hand-drawn.
+const SKETCH_SALTS = [12.9, 231.7];
+
+function strokeSketchy(ctx, pts, closed, color, width) {
+  if (pts.length < 2) return;
+  const amp = Math.max(0.6, width * 0.6);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = Math.max(0.6, width * 0.85);
+  for (const salt of SKETCH_SALTS) {
+    ctx.beginPath();
+    pts.forEach((p, i) => {
+      const [jx, jy] = jitterPoint(p[0], p[1], i, amp, salt);
+      if (i === 0) ctx.moveTo(jx, jy); else ctx.lineTo(jx, jy);
+    });
+    if (closed) ctx.closePath();
+    ctx.stroke();
+  }
+}
+
+// Subdivides straight polygon/line edges before jittering -- jittering only
+// the original vertices of a long straight edge just tilts the whole edge
+// (still perfectly straight), it doesn't look "wobbly"; adding a few points
+// along the way is what actually produces a hand-drawn-looking line.
+function densify(pts, perEdge = 6, closed = false) {
+  const out = [];
+  const n = pts.length;
+  const lim = closed ? n : n - 1;
+  for (let i = 0; i < lim; i++) {
+    const a = pts[i], b = pts[(i + 1) % n];
+    for (let k = 0; k < perEdge; k++) {
+      const t = k / perEdge;
+      out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+    }
+  }
+  if (!closed) out.push(pts[n - 1]);
+  return out;
+}
+
+function ellipsePoints(cx, cy, rx, ry, n = 48) {
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    const t = (2 * Math.PI * i) / n;
+    pts.push([cx + rx * Math.cos(t), cy + ry * Math.sin(t)]);
+  }
+  return pts;
+}
+
 /* ---------------------------------------------------------------- render */
 function drawArrowHead(ctx, from, to, color, size, style) {
   if (style === 'none') return;
@@ -192,6 +265,8 @@ function applyLineStyle(ctx, s) {
 function renderShape(ctx, s, selected) {
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
+  const sketchy = window.SKETCHY_MODE && !selected;
+
   if (s.type === 'stroke') {
     if (!s.segments.length) return;
     ctx.beginPath();
@@ -199,17 +274,27 @@ function renderShape(ctx, s, selected) {
     for (const [, c1, c2, p3] of s.segments) ctx.bezierCurveTo(c1[0], c1[1], c2[0], c2[1], p3[0], p3[1]);
     if (s.closed) ctx.closePath();
     if (s.filled) { ctx.fillStyle = s.fillColor || s.color; ctx.fill(); }
-    applyLineStyle(ctx, s);
-    ctx.strokeStyle = s.color; ctx.lineWidth = s.width; ctx.stroke();
+    if (sketchy) {
+      let pts = [];
+      for (const seg of s.segments) pts = pts.concat(flattenBezier(seg, 14));
+      strokeSketchy(ctx, pts, s.closed, s.color, s.width);
+    } else {
+      applyLineStyle(ctx, s);
+      ctx.strokeStyle = s.color; ctx.lineWidth = s.width; ctx.stroke();
+    }
   } else if (s.type === 'line' || s.type === 'arrow') {
-    applyLineStyle(ctx, s);
-    ctx.strokeStyle = s.color; ctx.lineWidth = s.width;
     if (s.bend) {
       const ctrl = bendControlPoint(s.p0, s.p1, s.bend);
-      ctx.beginPath();
-      ctx.moveTo(s.p0[0], s.p0[1]);
-      ctx.quadraticCurveTo(ctrl[0], ctrl[1], s.p1[0], s.p1[1]);
-      ctx.stroke();
+      if (sketchy) {
+        strokeSketchy(ctx, flattenQuadratic(s.p0, ctrl, s.p1, 16), false, s.color, s.width);
+      } else {
+        applyLineStyle(ctx, s);
+        ctx.strokeStyle = s.color; ctx.lineWidth = s.width;
+        ctx.beginPath();
+        ctx.moveTo(s.p0[0], s.p0[1]);
+        ctx.quadraticCurveTo(ctrl[0], ctrl[1], s.p1[0], s.p1[1]);
+        ctx.stroke();
+      }
       if (s.type === 'arrow') {
         // tangent at the curve's end (t=1) points from ctrl to p1
         const tdx = s.p1[0] - ctrl[0], tdy = s.p1[1] - ctrl[1];
@@ -221,18 +306,28 @@ function renderShape(ctx, s, selected) {
       const shrink = s.type === 'arrow' && s.headStyle !== 'none' ? s.width * 3.2 : 0;
       const ang = Math.atan2(s.p1[1] - s.p0[1], s.p1[0] - s.p0[0]);
       const endPt = [s.p1[0] - shrink * Math.cos(ang), s.p1[1] - shrink * Math.sin(ang)];
-      ctx.beginPath();
-      ctx.moveTo(s.p0[0], s.p0[1]);
-      ctx.lineTo(endPt[0], endPt[1]);
-      ctx.stroke();
+      if (sketchy) {
+        strokeSketchy(ctx, densify([s.p0, endPt], 8, false), false, s.color, s.width);
+      } else {
+        applyLineStyle(ctx, s);
+        ctx.strokeStyle = s.color; ctx.lineWidth = s.width;
+        ctx.beginPath();
+        ctx.moveTo(s.p0[0], s.p0[1]);
+        ctx.lineTo(endPt[0], endPt[1]);
+        ctx.stroke();
+      }
       if (s.type === 'arrow') drawArrowHead(ctx, s.p0, s.p1, s.color, Math.max(9, s.width * 4), s.headStyle || 'stealth');
     }
   } else if (s.type === 'ellipse') {
     ctx.beginPath();
     ctx.ellipse(s.cx, s.cy, Math.abs(s.rx), Math.abs(s.ry), 0, 0, Math.PI * 2);
     if (s.filled) { ctx.fillStyle = s.fillColor || s.color; ctx.fill(); }
-    applyLineStyle(ctx, s);
-    ctx.strokeStyle = s.color; ctx.lineWidth = s.width; ctx.stroke();
+    if (sketchy) {
+      strokeSketchy(ctx, ellipsePoints(s.cx, s.cy, Math.abs(s.rx), Math.abs(s.ry), 56), true, s.color, s.width);
+    } else {
+      applyLineStyle(ctx, s);
+      ctx.strokeStyle = s.color; ctx.lineWidth = s.width; ctx.stroke();
+    }
   } else if (s.type === 'polygon') {
     if (s.points.length < 2) return;
     ctx.beginPath();
@@ -240,8 +335,12 @@ function renderShape(ctx, s, selected) {
     for (const p of s.points.slice(1)) ctx.lineTo(p[0], p[1]);
     if (s.closed) ctx.closePath();
     if (s.filled) { ctx.fillStyle = s.fillColor || s.color; ctx.fill(); }
-    applyLineStyle(ctx, s);
-    ctx.strokeStyle = s.color; ctx.lineWidth = s.width; ctx.stroke();
+    if (sketchy) {
+      strokeSketchy(ctx, densify(s.points, 6, s.closed), s.closed, s.color, s.width);
+    } else {
+      applyLineStyle(ctx, s);
+      ctx.strokeStyle = s.color; ctx.lineWidth = s.width; ctx.stroke();
+    }
   } else if (s.type === 'text') {
     ctx.setLineDash([]);
     ctx.fillStyle = s.color;
