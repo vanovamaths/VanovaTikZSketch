@@ -151,10 +151,63 @@
 
   function snap(v) { return state.snapGrid ? Math.round(v / GRID_STEP) * GRID_STEP : v; }
 
+  // ------------------------------------------------------ infinite canvas
+  // The drawing surface used to be a fixed 1000x700 <canvas>: hit the right
+  // or bottom edge and you simply couldn't draw any further. growCanvasToInclude
+  // makes the canvas grow on demand in ALL FOUR directions as you draw near
+  // an edge, so the drawing area behaves as if it were infinite:
+  //  - growing right/down is simple: just enlarge canvas.width/height.
+  //  - growing left/up requires shifting every existing shape's coordinates
+  //    (and the canvas's own on-screen scroll position) so nothing appears
+  //    to jump -- the new space just appears exactly where the cursor is.
+  const GROW_MARGIN = 160; // start growing once the cursor is this close to an edge
+  const GROW_STEP = 900;   // grow by this much each time (avoids growing every pixel)
+
+  function growCanvasToInclude(x, y) {
+    let shiftX = 0, shiftY = 0;
+    let newWidth = canvas.width, newHeight = canvas.height;
+
+    if (x > canvas.width - GROW_MARGIN) newWidth = Math.max(newWidth, Math.ceil(x + GROW_STEP));
+    if (y > canvas.height - GROW_MARGIN) newHeight = Math.max(newHeight, Math.ceil(y + GROW_STEP));
+    if (x < GROW_MARGIN) { shiftX = GROW_STEP; newWidth += GROW_STEP; }
+    if (y < GROW_MARGIN) { shiftY = GROW_STEP; newHeight += GROW_STEP; }
+
+    const resized = newWidth !== canvas.width || newHeight !== canvas.height;
+    if (!resized && !shiftX && !shiftY) return [x, y];
+
+    if (shiftX || shiftY) {
+      state.shapes.forEach((s) => translateShape(s, shiftX, shiftY));
+      if (drag) {
+        if (drag.points) drag.points = drag.points.map((p) => [p[0] + shiftX, p[1] + shiftY]);
+        if (drag.p0) drag.p0 = [drag.p0[0] + shiftX, drag.p0[1] + shiftY];
+        if (drag.p1) drag.p1 = [drag.p1[0] + shiftX, drag.p1[1] + shiftY];
+        if (drag.last) drag.last = [drag.last[0] + shiftX, drag.last[1] + shiftY];
+      }
+    }
+
+    canvas.width = newWidth;
+    canvas.height = newHeight;
+
+    if (shiftX || shiftY) {
+      // Keep the drawing visually anchored: the canvas element just grew
+      // in the top-left direction, so scroll the wrapper by the same
+      // amount (in on-screen pixels, i.e. scaled by the current zoom) so
+      // nothing appears to jump under the user's cursor.
+      canvasWrap.scrollLeft += shiftX * state.zoom;
+      canvasWrap.scrollTop += shiftY * state.zoom;
+    }
+
+    render();
+    return [x + shiftX, y + shiftY];
+  }
+
   function pointerPos(evt) {
     const r = canvas.getBoundingClientRect();
     const sx = canvas.width / r.width, sy = canvas.height / r.height;
-    return [snap((evt.clientX - r.left) * sx), snap((evt.clientY - r.top) * sy)];
+    let x = snap((evt.clientX - r.left) * sx);
+    let y = snap((evt.clientY - r.top) * sy);
+    [x, y] = growCanvasToInclude(x, y);
+    return [x, y];
   }
 
   function newShapeBase() {
@@ -440,7 +493,8 @@
       + 'Text: click, then type (LaTeX allowed, e.g. $\\alpha$).\n'
       + 'Select: click to select/move; Delete to remove.\n'
       + 'Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z redo, Ctrl/Cmd+C/V/D copy/paste/duplicate.\n'
-      + 'Ctrl/Cmd + scroll wheel: zoom.');
+      + 'Ctrl/Cmd + scroll wheel: zoom.\n'
+      + 'The canvas grows automatically in every direction as you draw near an edge -- there is no fixed boundary.');
   });
 
   document.getElementById('btn-save').addEventListener('click', () => {
@@ -493,19 +547,35 @@
     // Render onto a plain off-screen canvas (true white background, no
     // grid, no selection box) so the downloaded PNG matches the SVG/TikZ
     // export rather than the softened editing-canvas tint or UI overlays.
+    // Exported at a high supersampling factor (SCALE) so the PNG is sharp
+    // and print/publication quality instead of the raw 1:1 editor
+    // resolution, which looked blurry/pixelated once dropped into a paper
+    // or a slide and zoomed in.
+    if (!state.shapes.length) { setStatus('Nothing to export yet -- draw something first.'); return; }
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const s of state.shapes) {
+      const bb = shapeBBox(s);
+      x0 = Math.min(x0, bb[0]); y0 = Math.min(y0, bb[1]);
+      x1 = Math.max(x1, bb[2]); y1 = Math.max(y1, bb[3]);
+    }
+    const margin = 40;
+    const w = (x1 - x0) + 2 * margin, h = (y1 - y0) + 2 * margin;
+    const SCALE = 3; // supersampling factor -> sharp, publication-quality PNG
     const off = document.createElement('canvas');
-    off.width = canvas.width;
-    off.height = canvas.height;
+    off.width = Math.max(1, Math.round(w * SCALE));
+    off.height = Math.max(1, Math.round(h * SCALE));
     const offCtx = off.getContext('2d');
     offCtx.fillStyle = '#ffffff';
     offCtx.fillRect(0, 0, off.width, off.height);
+    offCtx.scale(SCALE, SCALE);
+    offCtx.translate(margin - x0, margin - y0);
     for (const s of state.shapes) renderShape(offCtx, s, false);
     off.toBlob((blob) => {
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = 'figure.png';
       a.click();
-      setStatus('PNG exported.');
+      setStatus('High-resolution PNG exported.');
     }, 'image/png');
   });
 
@@ -623,3 +693,4 @@
   applyZoom();
   setStatus('Ready.');
 })();
+
