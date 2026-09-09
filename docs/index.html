@@ -5,116 +5,74 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="google-site-verification" content="nwSabsRumpGB6sOMVnJccjSqIy-mAOWAHp2JDzQthoU" />
 <title>VanovaTikZSketch — geometry at your fingertips</title>
-<meta name="description" content="A browser-based geometry sketcher for mathematicians. Draw freehand or insert precise geometric forms, then export clean TikZ/LaTeX, SVG and high-resolution PNG." />
-<meta name="keywords" content="TikZ, LaTeX, geometry sketch, topology diagram, commutative diagram, quiver, hand-drawn to TikZ, math diagram tool, differential geometry" />
+<meta name="description" content="A fast browser-based mathematical drawing desk. Sketch freely, insert precise geometry, and export clean TikZ/LaTeX, SVG and high-resolution PNG." />
+<meta name="keywords" content="TikZ, LaTeX, geometry sketch, topology diagram, commutative diagram, quiver, math drawing, differential geometry" />
 <link rel="canonical" href="https://vanovamaths.github.io/VanovaTikZSketch/" />
 <meta property="og:title" content="VanovaTikZSketch — geometry at your fingertips" />
-<meta property="og:description" content="Draw mathematical geometry in the browser and export publication-ready TikZ/LaTeX, SVG and PNG." />
+<meta property="og:description" content="An infinite mathematical sketch desk with precise geometry and publication-ready TikZ export." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://vanovamaths.github.io/VanovaTikZSketch/" />
-<meta name="twitter:card" content="summary" />
-<link rel="stylesheet" href="style.css" />
+<link rel="stylesheet" href="style.css?v=20260909-2" />
 </head>
 <body>
   <header id="brandbar">
     <div id="brandbar-inner">
       <a id="brand-lockup" href="./" aria-label="VanovaTikZSketch home">
         <span id="brand-name">VanovaTikZSketch</span>
-        <span id="brand-tagline">Geometry at your fingertips</span>
+        <span id="brand-tagline">Mathematics at your fingertips</span>
       </a>
-      <nav id="brand-nav" aria-label="Primary navigation">
-        <a class="active" href="#workspace">Sketch</a>
-        <a href="#geometry-tools">Geometry</a>
-        <a href="#side-panel">Export</a>
-        <a href="https://vanovamaths.github.io/vanolib/" target="_blank" rel="noopener">Vanolib ↗</a>
-      </nav>
-      <div id="brand-search" aria-hidden="true">TikZ · SVG · PNG</div>
+      <div id="brand-center">INFINITE MATHEMATICAL CANVAS</div>
+      <a id="vanolib-link" href="https://vanovamaths.github.io/vanolib/" target="_blank" rel="noopener">Vanolib ↗</a>
     </div>
   </header>
 
-  <section id="editor-intro" aria-label="Editor introduction">
-    <div class="intro-eyebrow">OPEN SOURCE · MATHEMATICS · GEOMETRY</div>
-    <div class="intro-grid">
-      <h1>Draw mathematics.<br />Export <em>TikZ.</em></h1>
-      <div class="intro-copy">
-        <p>Freehand curves, precise geometry, topology sketches and commutative-diagram arrows — directly in your browser.</p>
-        <div class="intro-rule"><span></span> PUBLICATION-READY VECTOR OUTPUT.</div>
-      </div>
-      <div class="intro-wave" aria-hidden="true">
-        <svg viewBox="0 0 420 140" role="presentation">
-          <g fill="none" stroke="currentColor" stroke-width="1">
-            <path d="M0 112 C70 112 72 38 140 38 S210 112 280 112 S350 38 420 38"/>
-            <path d="M0 120 C70 120 78 48 145 48 S214 120 284 120 S354 48 420 48"/>
-            <path d="M0 128 C68 128 84 58 150 58 S220 128 290 128 S360 58 420 58"/>
-            <path d="M0 104 C70 104 66 28 135 28 S206 104 276 104 S346 28 420 28"/>
-            <path d="M0 96 C70 96 60 18 130 18 S200 96 270 96 S340 18 420 18"/>
-          </g>
-        </svg>
-      </div>
-    </div>
-    <div class="intro-stats">
-      <div><strong>∞</strong><span>Infinite canvas</span></div>
-      <div><strong>30+</strong><span>Geometry presets</span></div>
-      <div><strong>TikZ</strong><span>Live LaTeX export</span></div>
-      <div><strong>3×</strong><span>High-resolution PNG</span></div>
-    </div>
-  </section>
-
   <header id="toolbar" aria-label="Drawing toolbar">
-    <div class="toolbar-heading">
-      <div>
-        <span class="toolbar-kicker">Editor</span>
-        <strong>Drawing tools</strong>
-      </div>
-      <span class="toolbar-note">Everything runs locally in your browser.</span>
-    </div>
-
-    <div class="tb-row tb-row--primary">
+    <div class="tb-row tb-row--tools">
       <div class="tb-group" id="tools">
-        <button data-tool="select" class="tool active" title="Select / Move (V)">↖ Select</button>
-        <button data-tool="pen" class="tool" title="Pen (freehand)">✎ Pen</button>
-        <button data-tool="line" class="tool" title="Line / segment">╱ Line</button>
+        <button data-tool="select" class="tool active" title="Select / move">↖ Select</button>
+        <button data-tool="pen" class="tool" title="Freehand pen">✎ Pen</button>
+        <button data-tool="line" class="tool" title="Straight line">╱ Line</button>
         <button data-tool="arrow" class="tool" title="Arrow / vector">→ Arrow</button>
-        <button data-tool="ellipse" class="tool" title="Ellipse">○ Ellipse</button>
+        <button data-tool="ellipse" class="tool" title="Ellipse / circle">○ Ellipse</button>
         <button data-tool="text" class="tool" title="Text / LaTeX">T Text</button>
         <button data-tool="eraser" class="tool" title="Eraser">⌫ Eraser</button>
       </div>
       <div class="tb-sep"></div>
       <div class="tb-group">
-        <button id="btn-undo" title="Undo (Ctrl+Z)">↶ Undo</button>
-        <button id="btn-redo" title="Redo (Ctrl+Shift+Z)">↷ Redo</button>
-        <button id="btn-delete" title="Delete selected (Del)">Delete</button>
+        <button id="btn-undo" title="Undo (Ctrl/Cmd+Z)">↶ Undo</button>
+        <button id="btn-redo" title="Redo (Ctrl/Cmd+Shift+Z)">↷ Redo</button>
+        <button id="btn-delete" title="Delete selected">Delete</button>
       </div>
       <div class="tb-sep"></div>
       <div class="tb-group">
-        <button id="btn-new" title="Clear drawing">New</button>
-        <button id="btn-new-window" title="Open a new blank window">New window</button>
-        <button id="btn-open" title="Open project (.json)">Open</button>
-        <button id="btn-save" title="Save project (.json)">Save</button>
-        <button id="btn-help" title="Help">Help</button>
+        <button id="btn-new" title="Clear the drawing">New</button>
+        <button id="btn-new-window" title="Open a blank editor in a new window">New window</button>
+        <button id="btn-open" title="Open project JSON">Open</button>
+        <button id="btn-save" title="Save project JSON">Save</button>
+        <button id="btn-help" title="Quick help">Help</button>
       </div>
     </div>
 
-    <div class="tb-row" id="geometry-tools">
+    <div class="tb-row">
       <div class="tb-group geometry-group">
-        <span class="tb-label">Geometry library</span>
+        <span class="tb-label">Geometry</span>
         <select id="preset-select" aria-label="Geometry preset"></select>
-        <button id="btn-insert-preset" class="accent-button" title="Insert the selected geometry preset into the current view">Insert shape</button>
+        <button id="btn-insert-preset" class="accent-button" title="Insert selected geometry in the center of the current view">Insert</button>
       </div>
       <div class="tb-sep"></div>
       <div class="tb-group">
         <span class="tb-label">Stroke</span>
         <div id="palette"></div>
-        <input type="color" id="color-picker" value="#111111" title="Custom stroke color" />
+        <input type="color" id="color-picker" value="#111111" title="Stroke color" />
       </div>
       <div class="tb-sep"></div>
-      <div class="tb-group compact-control">
+      <div class="tb-group">
         <span class="tb-label">Width</span>
         <input type="range" id="width-slider" min="1" max="10" step="0.5" value="2.5" />
         <span id="width-value">2.5</span>
       </div>
-      <div class="tb-group" id="fontsize-group" style="display:none;" title="Text size">
-        <span class="tb-label">Font size</span>
+      <div class="tb-group" id="fontsize-group" style="display:none;">
+        <span class="tb-label">Text</span>
         <input type="range" id="fontsize-slider" min="10" max="48" step="1" value="16" />
         <span id="fontsize-value">16</span>
       </div>
@@ -131,11 +89,11 @@
           <option value="none">None</option>
         </select>
       </div>
-      <div class="tb-group" id="curve-group" style="display:none;" title="Quiver-style bend">
+      <div class="tb-group" id="curve-group" style="display:none;">
         <span class="tb-label">Curve</span>
         <input type="range" id="curve-slider" min="-80" max="80" step="2" value="0" />
         <span id="curve-value">0</span>
-        <button id="btn-reverse-arrow" title="Reverse direction">⇆ Reverse</button>
+        <button id="btn-reverse-arrow" title="Reverse direction">⇆</button>
       </div>
       <div class="tb-group">
         <span class="tb-label">Line</span>
@@ -147,16 +105,16 @@
       </div>
     </div>
 
-    <div class="tb-row tb-row--secondary">
+    <div class="tb-row tb-row--compact">
       <div class="tb-group">
         <label><input type="checkbox" id="auto-finish" checked /> Auto-finish</label>
-        <label><input type="checkbox" id="snap-grid" /> Snap to grid</label>
-        <label><input type="checkbox" id="show-grid" /> Show grid</label>
-        <label><input type="checkbox" id="sketchy-mode" /> Sketchy style</label>
+        <label><input type="checkbox" id="snap-grid" /> Snap</label>
+        <label><input type="checkbox" id="show-grid" /> Grid</label>
+        <label><input type="checkbox" id="sketchy-mode" /> Sketchy</label>
       </div>
       <div class="tb-sep"></div>
-      <div class="tb-group" id="harmony-group" title="Generate a harmonious palette from a base color">
-        <span class="tb-label">Harmony</span>
+      <div class="tb-group" id="harmony-group">
+        <span class="tb-label">Palette</span>
         <input type="color" id="harmony-base" value="#b9491a" title="Base color" />
         <select id="harmony-scheme">
           <option value="complementary">Complementary</option>
@@ -170,74 +128,60 @@
       <div class="tb-sep"></div>
       <div class="tb-group">
         <span class="tb-label">View</span>
-        <button id="btn-zoom-out" title="Zoom out">−</button>
+        <button id="btn-zoom-out">−</button>
         <span id="zoom-label">100%</span>
-        <button id="btn-zoom-in" title="Zoom in">+</button>
-        <button id="btn-zoom-reset" title="Reset zoom">100%</button>
-        <button id="btn-fit" title="Frame the whole drawing">Fit</button>
-      </div>
-    </div>
-
-    <div class="tb-row tb-row--secondary">
-      <div class="tb-group">
-        <span class="tb-label">Shape</span>
-        <button id="btn-copy-shape" title="Copy (Ctrl/Cmd+C)">Copy</button>
-        <button id="btn-paste-shape" title="Paste (Ctrl/Cmd+V)">Paste</button>
-        <button id="btn-duplicate-shape" title="Duplicate (Ctrl/Cmd+D)">Duplicate</button>
+        <button id="btn-zoom-in">+</button>
+        <button id="btn-zoom-reset">100%</button>
+        <button id="btn-fit">Fit</button>
       </div>
       <div class="tb-sep"></div>
       <div class="tb-group">
-        <span class="tb-label">Order</span>
+        <span class="tb-label">Object</span>
+        <button id="btn-copy-shape">Copy</button>
+        <button id="btn-paste-shape">Paste</button>
+        <button id="btn-duplicate-shape">Duplicate</button>
         <button id="btn-front">Front</button>
         <button id="btn-forward">Forward</button>
         <button id="btn-backward">Backward</button>
         <button id="btn-back">Back</button>
-      </div>
-      <div class="tb-sep"></div>
-      <div class="tb-group">
-        <span class="tb-label">Transform</span>
         <button id="btn-flip-h">Flip H</button>
         <button id="btn-flip-v">Flip V</button>
-        <button id="btn-rotate">Rotate 90°</button>
+        <button id="btn-rotate">Rotate</button>
       </div>
       <div class="tb-sep"></div>
       <div class="tb-group">
-        <button id="btn-clear" class="danger-quiet" title="Clear all">Clear all</button>
+        <button id="btn-clear" class="danger-quiet">Clear all</button>
       </div>
     </div>
   </header>
 
   <main id="workspace">
-    <section id="canvas-column" aria-label="Drawing canvas">
-      <div class="workspace-head">
-        <div>
-          <span class="workspace-kicker">Canvas</span>
-          <strong>Mathematical sketch</strong>
-        </div>
-        <span>Ctrl/Cmd + wheel to zoom · canvas expands automatically</span>
+    <section id="canvas-shell" aria-label="Infinite drawing canvas">
+      <div id="canvas-ruler">
+        <span>DRAWING DESK</span>
+        <span>Draw near any edge to expand · Ctrl/Cmd + wheel to zoom</span>
       </div>
       <div id="canvas-wrap">
-        <canvas id="canvas" width="1000" height="700"></canvas>
+        <canvas id="canvas" width="1400" height="900"></canvas>
       </div>
     </section>
 
     <aside id="side-panel">
-      <div class="side-head">
-        <span class="workspace-kicker">Output</span>
-        <strong>Live export</strong>
+      <div class="side-title">
+        <span>EXPORT</span>
+        <strong>Live TikZ</strong>
       </div>
       <div class="panel-title">Preview</div>
       <div id="preview-wrap"><canvas id="preview-canvas" width="360" height="220"></canvas></div>
-
-      <div class="panel-title panel-title--code">TikZ code</div>
+      <div class="panel-title">TikZ / LaTeX</div>
       <textarea id="tikz-output" readonly spellcheck="false"></textarea>
       <div class="panel-buttons">
-        <button id="btn-copy" class="accent-button">Copy TikZ</button>
+        <button id="btn-copy" class="accent-button">Copy</button>
         <button id="btn-download-tex">.tex</button>
         <button id="btn-download-svg">SVG</button>
         <button id="btn-download-png">PNG 3×</button>
       </div>
-      <blockquote>“Geometry should be easy to draw, precise to export, and pleasant to use.”</blockquote>
+      <div class="side-note">Precise vectors, freehand curves, topology sketches and geometry presets remain editable before export.</div>
     </aside>
   </main>
 
@@ -248,12 +192,12 @@
 
   <input type="file" id="file-input" accept="application/json" style="display:none" />
 
-  <script src="js/smoothing.js"></script>
-  <script src="js/curvefit.js"></script>
-  <script src="js/latex-render.js"></script>
-  <script src="js/shapes.js"></script>
-  <script src="js/tikz-export.js"></script>
-  <script src="js/presets.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/smoothing.js?v=20260909-2"></script>
+  <script src="js/curvefit.js?v=20260909-2"></script>
+  <script src="js/latex-render.js?v=20260909-2"></script>
+  <script src="js/shapes.js?v=20260909-2"></script>
+  <script src="js/tikz-export.js?v=20260909-2"></script>
+  <script src="js/presets.js?v=20260909-2"></script>
+  <script src="js/app.js?v=20260909-2"></script>
 </body>
 </html>
