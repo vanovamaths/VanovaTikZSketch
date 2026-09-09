@@ -1,27 +1,45 @@
 /*
  * presets.js
- * Ready-made shape templates (JS port of the desktop app's presets.py),
- * inserted centered on the current view. Reuses the existing 'ellipse',
- * 'polygon', 'stroke' and 'line' shape types, so rendering, selection,
- * TikZ/SVG export and undo/redo all work on them exactly like hand-drawn
- * shapes -- no special-casing needed anywhere else in the app.
+ * Publication-friendly geometry templates. Every preset is built only from
+ * the app's existing ellipse/polygon/stroke/line/arrow primitives, so all
+ * editing, selection, TikZ/SVG export, undo/redo and transforms work without
+ * a separate rendering path.
  */
 
 const PRESET_LABELS = {
-  circle: 'Perfect circle',
-  ellipse: 'Perfect ellipse',
+  circle: 'Circle',
+  ellipse: 'Ellipse',
+  semicircle: 'Semicircle',
+  annulus: 'Annulus / ring',
+  sector: 'Circular sector',
   square: 'Square',
   rectangle: 'Rectangle',
   triangle: 'Equilateral triangle',
+  right_triangle: 'Right triangle',
+  isosceles_triangle: 'Isosceles triangle',
   pentagon: 'Regular pentagon',
   hexagon: 'Regular hexagon',
-  star: '5-point star',
+  octagon: 'Regular octagon',
+  decagon: 'Regular decagon',
   rhombus: 'Rhombus / diamond',
+  parallelogram: 'Parallelogram',
   trapezoid: 'Trapezoid',
-  annulus: 'Annulus (ring)',
+  kite: 'Kite',
+  star: '5-point star',
   cross: 'Cross / plus mark',
-  lens: 'Lens / eye mark (Dj style)',
-  torus: 'Torus (meridian + longitude)',
+  axes: 'Coordinate axes',
+  angle: 'Angle',
+  right_angle: 'Right angle marker',
+  parabola: 'Parabola',
+  hyperbola: 'Hyperbola',
+  sine: 'Sine curve',
+  spiral: 'Archimedean spiral',
+  lens: 'Lens / eye mark',
+  sphere: 'Sphere / globe',
+  cylinder: 'Cylinder',
+  cone: 'Cone',
+  cube: 'Cube',
+  torus: 'Torus (schematic)',
 };
 
 const PRESET_NAMES = Object.keys(PRESET_LABELS);
@@ -45,73 +63,154 @@ function starPoints(cx, cy, rOut, rIn, nPoints = 5, rotation = -Math.PI / 2) {
   return pts;
 }
 
+function sampleCurve(fn, t0, t1, steps) {
+  const pts = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = t0 + (t1 - t0) * (i / steps);
+    pts.push(fn(t));
+  }
+  return pts;
+}
+
+function poly(points, base, closed = true, filled = false, fillColor = null) {
+  return { type: 'polygon', points, closed, filled, fillColor, ...base };
+}
+
+function line(p0, p1, base, extra = {}) {
+  return { type: 'line', p0, p1, bend: 0, ...base, ...extra };
+}
+
+function arrow(p0, p1, base, extra = {}) {
+  return { type: 'arrow', p0, p1, headStyle: 'stealth', bend: 0, ...base, ...extra };
+}
+
+function ellipse(cx, cy, rx, ry, base, extra = {}) {
+  return { type: 'ellipse', cx, cy, rx, ry, filled: false, fillColor: null, ...base, ...extra };
+}
+
+function cubic(p0, c1, c2, p3, base, extra = {}) {
+  return { type: 'stroke', segments: [[p0, c1, c2, p3]], closed: false, filled: false, fillColor: null, ...base, ...extra };
+}
+
 function buildPreset(name, cx, cy, scale, color, width) {
   const s = scale;
   const base = { color, width, lineStyle: 'solid' };
 
-  if (name === 'circle') {
-    return [{ type: 'ellipse', cx, cy, rx: 60 * s, ry: 60 * s, filled: false, fillColor: null, ...base }];
+  if (name === 'circle') return [ellipse(cx, cy, 60 * s, 60 * s, base)];
+  if (name === 'ellipse') return [ellipse(cx, cy, 90 * s, 55 * s, base)];
+  if (name === 'semicircle') {
+    const pts = sampleCurve((t) => [cx + 72 * s * Math.cos(t), cy - 72 * s * Math.sin(t)], 0, Math.PI, 40);
+    return [poly(pts, base, false)];
   }
-  if (name === 'ellipse') {
-    return [{ type: 'ellipse', cx, cy, rx: 90 * s, ry: 55 * s, filled: false, fillColor: null, ...base }];
+  if (name === 'annulus') return [ellipse(cx, cy, 70 * s, 70 * s, base), ellipse(cx, cy, 36 * s, 36 * s, base)];
+  if (name === 'sector') {
+    const arc = sampleCurve((t) => [cx + 72 * s * Math.cos(t), cy + 72 * s * Math.sin(t)], -Math.PI * 0.72, Math.PI * 0.18, 30);
+    return [poly([[cx, cy], ...arc], base, true)];
   }
   if (name === 'square') {
-    const h = 55 * s;
-    const pts = [[cx - h, cy - h], [cx + h, cy - h], [cx + h, cy + h], [cx - h, cy + h]];
-    return [{ type: 'polygon', points: pts, closed: true, filled: false, fillColor: null, ...base }];
+    const h = 56 * s;
+    return [poly([[cx-h,cy-h],[cx+h,cy-h],[cx+h,cy+h],[cx-h,cy+h]], base)];
   }
   if (name === 'rectangle') {
-    const w = 60 * s, h = 40 * s;
-    const pts = [[cx - w, cy - h], [cx + w, cy - h], [cx + w, cy + h], [cx - w, cy + h]];
-    return [{ type: 'polygon', points: pts, closed: true, filled: false, fillColor: null, ...base }];
+    const w = 78 * s, h = 48 * s;
+    return [poly([[cx-w,cy-h],[cx+w,cy-h],[cx+w,cy+h],[cx-w,cy+h]], base)];
   }
-  if (name === 'triangle') {
-    return [{ type: 'polygon', points: regularPolygonPoints(cx, cy, 70 * s, 3, -Math.PI / 2), closed: true, filled: false, fillColor: null, ...base }];
-  }
-  if (name === 'pentagon') {
-    return [{ type: 'polygon', points: regularPolygonPoints(cx, cy, 70 * s, 5, -Math.PI / 2), closed: true, filled: false, fillColor: null, ...base }];
-  }
-  if (name === 'hexagon') {
-    return [{ type: 'polygon', points: regularPolygonPoints(cx, cy, 70 * s, 6, 0), closed: true, filled: false, fillColor: null, ...base }];
-  }
-  if (name === 'star') {
-    return [{ type: 'polygon', points: starPoints(cx, cy, 75 * s, 30 * s), closed: true, filled: false, fillColor: null, ...base }];
-  }
-  if (name === 'rhombus') {
-    const pts = [[cx, cy - 70 * s], [cx + 45 * s, cy], [cx, cy + 70 * s], [cx - 45 * s, cy]];
-    return [{ type: 'polygon', points: pts, closed: true, filled: false, fillColor: null, ...base }];
-  }
-  if (name === 'trapezoid') {
-    const pts = [[cx - 70 * s, cy + 40 * s], [cx + 70 * s, cy + 40 * s], [cx + 40 * s, cy - 40 * s], [cx - 40 * s, cy - 40 * s]];
-    return [{ type: 'polygon', points: pts, closed: true, filled: false, fillColor: null, ...base }];
-  }
-  if (name === 'annulus') {
+  if (name === 'triangle') return [poly(regularPolygonPoints(cx, cy, 72 * s, 3, -Math.PI / 2), base)];
+  if (name === 'right_triangle') return [poly([[cx-68*s,cy+54*s],[cx+68*s,cy+54*s],[cx-68*s,cy-54*s]], base)];
+  if (name === 'isosceles_triangle') return [poly([[cx,cy-70*s],[cx+66*s,cy+55*s],[cx-66*s,cy+55*s]], base)];
+  if (name === 'pentagon') return [poly(regularPolygonPoints(cx, cy, 72 * s, 5, -Math.PI / 2), base)];
+  if (name === 'hexagon') return [poly(regularPolygonPoints(cx, cy, 72 * s, 6, 0), base)];
+  if (name === 'octagon') return [poly(regularPolygonPoints(cx, cy, 72 * s, 8, Math.PI / 8), base)];
+  if (name === 'decagon') return [poly(regularPolygonPoints(cx, cy, 72 * s, 10, -Math.PI / 2), base)];
+  if (name === 'rhombus') return [poly([[cx,cy-72*s],[cx+50*s,cy],[cx,cy+72*s],[cx-50*s,cy]], base)];
+  if (name === 'parallelogram') return [poly([[cx-72*s,cy+46*s],[cx+48*s,cy+46*s],[cx+72*s,cy-46*s],[cx-48*s,cy-46*s]], base)];
+  if (name === 'trapezoid') return [poly([[cx-76*s,cy+46*s],[cx+76*s,cy+46*s],[cx+44*s,cy-46*s],[cx-44*s,cy-46*s]], base)];
+  if (name === 'kite') return [poly([[cx,cy-78*s],[cx+52*s,cy-8*s],[cx,cy+72*s],[cx-38*s,cy-8*s]], base)];
+  if (name === 'star') return [poly(starPoints(cx, cy, 78*s, 32*s), base)];
+  if (name === 'cross') return [line([cx-52*s,cy],[cx+52*s,cy],base), line([cx,cy-52*s],[cx,cy+52*s],base)];
+
+  if (name === 'axes') {
     return [
-      { type: 'ellipse', cx, cy, rx: 70 * s, ry: 70 * s, filled: false, fillColor: null, ...base },
-      { type: 'ellipse', cx, cy, rx: 35 * s, ry: 35 * s, filled: false, fillColor: null, ...base },
+      arrow([cx-95*s,cy],[cx+105*s,cy],base),
+      arrow([cx,cy+85*s],[cx,cy-95*s],base),
+      line([cx-6*s,cy-35*s],[cx+6*s,cy-35*s],base,{width:Math.max(1,width*.7)}),
+      line([cx+40*s,cy-6*s],[cx+40*s,cy+6*s],base,{width:Math.max(1,width*.7)}),
     ];
   }
-  if (name === 'cross') {
-    return [
-      { type: 'line', p0: [cx - 45 * s, cy], p1: [cx + 45 * s, cy], bend: 0, ...base },
-      { type: 'line', p0: [cx, cy - 45 * s], p1: [cx, cy + 45 * s], bend: 0, ...base },
-    ];
+  if (name === 'angle') {
+    const r = 42 * s;
+    const arcPts = sampleCurve((t) => [cx + r*Math.cos(t), cy - r*Math.sin(t)], 0, Math.PI/3, 18);
+    return [line([cx,cy],[cx+92*s,cy],base), line([cx,cy],[cx+72*s,cy-62*s],base), poly(arcPts,base,false)];
   }
+  if (name === 'right_angle') {
+    const q = 22 * s;
+    return [poly([[cx-q,cy],[cx-q,cy-q],[cx,cy-q]],base,false)];
+  }
+  if (name === 'parabola') {
+    const pts = sampleCurve((t) => [cx + t*72*s, cy + (t*t*54 - 38)*s], -1.35, 1.35, 64);
+    return [poly(pts, base, false)];
+  }
+  if (name === 'hyperbola') {
+    const left = sampleCurve((t) => [cx - 36*s*Math.cosh(t), cy + 36*s*Math.sinh(t)], -1.05, 1.05, 42);
+    const right = sampleCurve((t) => [cx + 36*s*Math.cosh(t), cy + 36*s*Math.sinh(t)], -1.05, 1.05, 42);
+    return [poly(left, base, false), poly(right, base, false)];
+  }
+  if (name === 'sine') {
+    const pts = sampleCurve((t) => [cx + t*30*s, cy - Math.sin(t)*44*s], -Math.PI*2.2, Math.PI*2.2, 120);
+    return [poly(pts, base, false)];
+  }
+  if (name === 'spiral') {
+    const pts = sampleCurve((t) => {
+      const r = 4*s + 4.4*s*t;
+      return [cx + r*Math.cos(t), cy + r*Math.sin(t)];
+    }, 0, Math.PI*5.2, 150);
+    return [poly(pts, base, false)];
+  }
+
   if (name === 'lens') {
-    // A perfectly symmetric lens/vesica ("eye") mark: two arcs meeting at
-    // two sharp tips -- exactly the shape used for D1/D2/D3-style
-    // degeneracy-locus markings, with zero hand-drawn wobble.
-    const a = 26 * s, b = 9 * s, k = 0.9;
+    const a = 34*s, b = 14*s, k = .9;
     return [
-      { type: 'stroke', segments: [[[cx - a, cy], [cx - a * k, cy - b], [cx + a * k, cy - b], [cx + a, cy]]], closed: false, filled: false, fillColor: null, ...base },
-      { type: 'stroke', segments: [[[cx - a, cy], [cx - a * k, cy + b], [cx + a * k, cy + b], [cx + a, cy]]], closed: false, filled: false, fillColor: null, ...base },
+      cubic([cx-a,cy],[cx-a*k,cy-b],[cx+a*k,cy-b],[cx+a,cy],base),
+      cubic([cx-a,cy],[cx-a*k,cy+b],[cx+a*k,cy+b],[cx+a,cy],base),
+    ];
+  }
+  if (name === 'sphere') {
+    return [
+      ellipse(cx,cy,72*s,72*s,base),
+      ellipse(cx,cy,72*s,26*s,base),
+      ellipse(cx,cy,25*s,72*s,base),
+    ];
+  }
+  if (name === 'cylinder') {
+    return [
+      ellipse(cx,cy-55*s,68*s,24*s,base),
+      ellipse(cx,cy+55*s,68*s,24*s,base),
+      line([cx-68*s,cy-55*s],[cx-68*s,cy+55*s],base),
+      line([cx+68*s,cy-55*s],[cx+68*s,cy+55*s],base),
+    ];
+  }
+  if (name === 'cone') {
+    return [
+      ellipse(cx,cy+54*s,72*s,23*s,base),
+      line([cx,cy-78*s],[cx-72*s,cy+54*s],base),
+      line([cx,cy-78*s],[cx+72*s,cy+54*s],base),
+    ];
+  }
+  if (name === 'cube') {
+    const a=52*s, d=26*s;
+    const front=[[cx-a,cy-a],[cx+a,cy-a],[cx+a,cy+a],[cx-a,cy+a]];
+    const back=front.map(([x,y])=>[x+d,y-d]);
+    return [
+      poly(front,base), poly(back,base),
+      line(front[0],back[0],base), line(front[1],back[1],base),
+      line(front[2],back[2],base), line(front[3],back[3],base),
     ];
   }
   if (name === 'torus') {
     return [
-      { type: 'ellipse', cx, cy, rx: 100 * s, ry: 55 * s, filled: false, fillColor: null, ...base },
-      { type: 'ellipse', cx, cy, rx: 45 * s, ry: 22 * s, filled: false, fillColor: null, ...base },
-      { type: 'ellipse', cx, cy, rx: 25 * s, ry: 55 * s, filled: false, fillColor: null, ...base, width: width * 0.8 },
+      ellipse(cx,cy,104*s,58*s,base),
+      ellipse(cx,cy,46*s,23*s,base),
+      ellipse(cx,cy,28*s,58*s,base,{width:Math.max(1,width*.8)}),
     ];
   }
   return [];
